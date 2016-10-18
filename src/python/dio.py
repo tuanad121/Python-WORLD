@@ -2,16 +2,16 @@ from pysig import track
 import math
 from scipy.signal import decimate
 from scipy.interpolate import interp1d
-from matplotlib import pyplot as plt 
+#from matplotlib import pyplot as plt 
 
 import numpy as np
 SHORT_MAX = 32767 #normalize input signal
-def Dio(x, fs, f0_floor = 71, f0_ceil = 800, channels_in_octave = 2, target_fs = 4000, frame_period = 5, allowed_range = 0.1):
+def Dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, frame_period=5, allowed_range=0.1):
     #print(fs)
     #print(x)
-    temporal_positions = np.arange(0, np.size(x)/fs, frame_period/1000) #careful!! check later
+    temporal_positions = np.arange(0, np.size(x) / fs, frame_period / 1000) #careful!! check later
     
-    boundary_f0_list = range(math.ceil(math.log(f0_ceil/f0_floor,2)*channels_in_octave))
+    boundary_f0_list = range(math.ceil(math.log(f0_ceil / f0_floor, 2) * channels_in_octave))
     boundary_f0_list = [elm + 1 for elm in boundary_f0_list]
     boundary_f0_list = [elm/channels_in_octave for elm in boundary_f0_list]
     boundary_f0_list = [2.0 ** elm for elm in boundary_f0_list]
@@ -70,10 +70,10 @@ def CalculateSpectrum(x, fs, lowest_f0):
 ##########################################################################################################
 
 def CalculateCandidateAndStabirity(number_of_frames, boundary_f0_list,y_length, temporal_positions, actual_fs, y_spectrum, f0_floor, f0_ceil):
-    raw_f0_candidate = np.zeros(length(boundary_f0_list), number_of_frames)
-    raw_f0_stability = np.zeros(length(boundary_f0_list), number_of_frames)
+    raw_f0_candidate = np.zeros(len(boundary_f0_list), number_of_frames)
+    raw_f0_stability = np.zeros(len(boundary_f0_list), number_of_frames)
     for i in range(np.size(boundary_f0_list)):
-        interpolated_f0, f0_deviations = CalculateRawEvent(boundary_f0_list(i), actual_fs, y_spectrum, y_length, temporal_positions, f0_floor, f0_ceil);
+        interpolated_f0, f0_deviations = CalculateRawEvent(boundary_f0_list(i), actual_fs, y_spectrum, y_length, temporal_positions, f0_floor, f0_ceil)
         raw_f0_stability[i, :] = math.exp(-(f0_deviations / max(0.0000001, interpolated_f0)))
         raw_f0_candidate[i, :] = interpolated_f0
     return raw_f0_candidate, raw_f0_stability
@@ -83,7 +83,7 @@ def CalculateCandidateAndStabirity(number_of_frames, boundary_f0_list,y_length, 
 def SortCandidates(f0_candidate_map, stability_map):
     #not test yet ***********
     number_of_candidates, number_of_frames = f0_candidate_map.shape()
-    sorted_index = sort(-stability_map, axis = 0, kind='quicksort')
+    sorted_index = np.argsort(-stability_map, axis = 0, kind='quicksort')
     f0_candidates = np.zeros(number_of_candidates, number_of_frames)
     f0_candidates_score = np.zeros(number_of_candidates, number_of_frames)    
     for i in range(number_of_frames):
@@ -94,11 +94,11 @@ def SortCandidates(f0_candidate_map, stability_map):
 ########################################################################################################## 
 
 def CalculateRawEvent(boundary_f0,fs, y_spectrum, y_length, temporal_positions, f0_floor, f0_ceil):
-    half_filter_length = np.round(fs / boundary_f0 / 2);
+    half_filter_length = np.round(fs / boundary_f0 / 2)
     low_pass_filter = nuttall(half_filter_length * 4);
     index_bias = low_pass_filter.argmax(axis=0)
     
-    spectrum_low_pass_filter = np.fft.fft(low_pass_filter, length(y_spectrum))
+    spectrum_low_pass_filter = np.fft.fft(low_pass_filter, len(y_spectrum))
     
     filtered_signal = np.real(np.fft.ifft(spectrum_low_pass_filter * y_spectrum))
     filtered_signal = filtered_signal(index_bias + np.arange(y_length)) 
@@ -106,8 +106,8 @@ def CalculateRawEvent(boundary_f0,fs, y_spectrum, y_length, temporal_positions, 
     # calculate 4 kinds of event
     negative_zero_cross = ZeroCrossingEngine(filtered_signal, fs)
     positive_zero_cross = ZeroCrossingEngine(-filtered_signal, fs)
-    peak = ZeroCrossingEngine(diff(filtered_signal), fs)
-    dip = ZeroCrossingEngine(-diff(filtered_signal), fs)
+    peak = ZeroCrossingEngine(np.diff(filtered_signal), fs)
+    dip = ZeroCrossingEngine(-np.diff(filtered_signal), fs)
     
     f0_candidate, f0_deviations = GetF0Candidates(negative_zero_cross, positive_zero_cross, peak, dip, temporal_positions)
     # remove untrustful candidates
@@ -154,7 +154,7 @@ def ZeroCrossingEngine(x, fs):
             negative_going_points.append(i)
     edge_list = np.array(negative_going_points)# the different indexing between MATLAB and Python make this variable different, maybe OK!?
     fine_edge_list = edge_list - x[edge_list] / (x[edge_list + 1] - x[edge_list]);
-    interval_locations =(fine_edge_list[0 : np.size(fine_edge_list)-1] + fine_edge_list[1:]) / 2 / fs
+    interval_locations = (fine_edge_list[:np.size(fine_edge_list) - 1] + fine_edge_list[1:]) / 2 / fs
     interval_based_f0 = fs / np.diff(fine_edge_list)
     
     return {'interval_locations':interval_locations, 
@@ -168,25 +168,5 @@ def nuttall(N):
     coefs = np.array([0.355768, -0.487396, 0.144232, -0.012604])
     window = np.dot(coefs, np.cos(np.dot(np.matrix([0,1,2,3]).T,t)))
     return np.asarray(window)
-
-name='test/test-mwm'
-inp_wav = track.Wave.wavread('%s.wav' % name, channel=0)
-
-#print(inp_wav.get_value())
-#results=Dio(inp_wav.get_value()/SHORT_MAX, inp_wav.fs)
-#frame_period=5
-#temporal_positions = np.arange(0, np.size(inp_wav.get_value())/inp_wav.fs, frame_period/1000)
-
-#negative_zero_cross = ZeroCrossingEngine(inp_wav.get_value()/SHORT_MAX, inp_wav.fs);
-#positive_zero_cross = ZeroCrossingEngine(-inp_wav.get_value()/SHORT_MAX, inp_wav.fs);
-#peak = ZeroCrossingEngine(np.diff(inp_wav.get_value()/SHORT_MAX), inp_wav.fs);
-#dip = ZeroCrossingEngine(-np.diff(inp_wav.get_value()/SHORT_MAX), inp_wav.fs);
-#f0_candidates, f0_deviations = GetF0Candidates(negative_zero_cross, positive_zero_cross, peak, dip, 
-#               temporal_positions)
-
-
-print('done')
-#print(results['temporal_positions'])
-
 
 
