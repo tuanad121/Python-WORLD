@@ -1,4 +1,4 @@
-from pysig import track
+#from pysig import track
 import math
 from scipy.signal import decimate
 from scipy.interpolate import interp1d
@@ -7,13 +7,25 @@ from scipy.interpolate import interp1d
 import numpy as np
 SHORT_MAX = 32767 #normalize input signal
 def Dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, frame_period=5, allowed_range=0.1):
-    #print(fs)
-    #print(x)
+    '''
+    F0 estimation by DIO
+    f0_parameter = Dio(x, fs, f0_ceil, channels_in_octave, target_fs, frame_period, allowed_range);
+    
+    Inputs
+    x  : input signal
+    fs : sampling frequency
+    other settings : f0_floor (Hz), f0_ceil (Hz), target_fs (Hz)
+             channels_in_octave (ch), allowed_range, and frame_period (ms)
+    Output
+    f0 infromation
+
+    Caution: minimum frame_period is 1.
+    '''
     temporal_positions = np.arange(0, np.size(x) / fs, frame_period / 1000) #careful!! check later
     
     boundary_f0_list = range(math.ceil(math.log(f0_ceil / f0_floor, 2) * channels_in_octave))
     boundary_f0_list = [elm + 1 for elm in boundary_f0_list]
-    boundary_f0_list = [elm/channels_in_octave for elm in boundary_f0_list]
+    boundary_f0_list = [elm / channels_in_octave for elm in boundary_f0_list]
     boundary_f0_list = [2.0 ** elm for elm in boundary_f0_list]
     boundary_f0_list = np.array([f0_floor * elm for elm in boundary_f0_list])
     #down sample to target Hz
@@ -127,17 +139,16 @@ def GetF0Candidates(negative_zero_cross, positive_zero_cross, peak, dip, tempora
         max(0, np.size(positive_zero_cross['interval_locations']) - 2) *\
         max(0, np.size(peak['interval_locations']) - 2) *\
         max(0, np.size(dip['interval_locations']) - 2) 
-    interpolated_f0_list = np.zeros((4, np.size(temporal_positions)))
     
+    interpolated_f0_list = np.zeros((4, np.size(temporal_positions)))
     
     if usable_channel > 0:
         interpolated_f0_list[0,:] = interp1d(negative_zero_cross['interval_locations'], negative_zero_cross['interval_based_f0'], fill_value='extrapolate')(temporal_positions)
         interpolated_f0_list[1,:] = interp1d(positive_zero_cross['interval_locations'], positive_zero_cross['interval_based_f0'], fill_value='extrapolate')(temporal_positions)
         interpolated_f0_list[2,:] = interp1d(peak['interval_locations'], peak['interval_based_f0'], fill_value='extrapolate')(temporal_positions)
         interpolated_f0_list[3,:] = interp1d(dip['interval_locations'], dip['interval_based_f0'], fill_value='extrapolate')(temporal_positions)
-        
         interpolated_f0 = np.mean(interpolated_f0_list, axis=0)
-        f0_deviations = np.std(interpolated_f0_list, axis=0)
+        f0_deviations = np.std(interpolated_f0_list, axis=0, ddof=1)
     else:
         interpolated_f0 = temporal_positions * 0;
         f0_deviations = temporal_positions * 0 + 1000;        
@@ -149,16 +160,17 @@ def ZeroCrossingEngine(x, fs):
     #y=x.tolist()
     negative_going_points = []
     
-    for i in range(np.size(x)-1):
+    for i in range(np.size(x) - 1):
         if x[i]*x[i+1] < 0 and x[i] > x[i+1]:
             negative_going_points.append(i)
     edge_list = np.array(negative_going_points)# the different indexing between MATLAB and Python make this variable different, maybe OK!?
-    fine_edge_list = edge_list - x[edge_list] / (x[edge_list + 1] - x[edge_list]);
+    fine_edge_list = (edge_list + 1) - x[edge_list] / (x[edge_list + 1] - x[edge_list]);
     interval_locations = (fine_edge_list[:np.size(fine_edge_list) - 1] + fine_edge_list[1:]) / 2 / fs
     interval_based_f0 = fs / np.diff(fine_edge_list)
     
-    return {'interval_locations':interval_locations, 
-            'interval_based_f0':interval_based_f0
+    return {
+        'interval_locations':interval_locations, 
+        'interval_based_f0':interval_based_f0
             }
 
 ##########################################################################################################

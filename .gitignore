@@ -1,9 +1,1 @@
-# temp files
-.DS_Store
-
-# WingIDE user-specific settings
-*.wpu
-*.wpr
-
-# python
-*.py[c|o]
+*/recode.m
