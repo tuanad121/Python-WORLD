@@ -31,7 +31,9 @@ boundary_f0_list = f0_floor * 2.0 .^...
   channels_in_octave);
 
 % down-sampling to target_fs Hz
-[y, actual_fs] = CalculateDownsampledSignal(x, fs, target_fs);
+%[y, actual_fs] = CalculateDownsampledSignal(x, fs, target_fs);
+y = x; actual_fs = fs;%------------------------------------------
+
 % spectrum with low-pass filtering 2011/1/4
 y_spectrum = CalculateSpectrum(y, actual_fs, f0_floor);
 
@@ -40,6 +42,7 @@ y_spectrum = CalculateSpectrum(y, actual_fs, f0_floor);
   temporal_positions, actual_fs, y_spectrum, f0_floor, f0_ceil);
 
 f0_candidates = SortCandidates(raw_f0_candidate, raw_stability);
+
 
 f0_parameter.f0 = f0_candidates(1, :);
 f0_parameter.f0_candidates = f0_candidates;
@@ -119,7 +122,9 @@ for i = 1 : length(boundary_f0_list)
 
   raw_f0_stability(i, :) =...
     exp(-(f0_deviations ./ max(0.0000001, interpolated_f0)));
+
   raw_f0_candidate(i, :) = interpolated_f0;
+  
 end;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -147,7 +152,9 @@ low_pass_filter = nuttall(half_filter_length * 4);
 
 spectrum_low_pass_filter = fft(low_pass_filter, length(y_spectrum));
 
+
 filtered_signal = real(ifft(spectrum_low_pass_filter .* y_spectrum));
+
 filtered_signal = filtered_signal(index_bias + (1 : y_length));
 
 % calculate 4 kinds of event
@@ -156,10 +163,11 @@ positive_zero_cross = ZeroCrossingEngine(-filtered_signal, fs);
 peak = ZeroCrossingEngine(diff(filtered_signal), fs);
 dip = ZeroCrossingEngine(-diff(filtered_signal), fs);
 
+
+
 [f0_candidate, f0_deviations] =...
   GetF0Candidates(negative_zero_cross, positive_zero_cross, peak,...
   dip, temporal_positions);
-
 % remove untrustful candidates
 f0_candidate(f0_candidate > boundary_f0) = 0;
 f0_candidate(f0_candidate < (boundary_f0 / 2)) = 0;
@@ -208,7 +216,9 @@ negative_going_points =...
 
 edge_list = negative_going_points(negative_going_points > 0);
 
+
 fine_edge_list = edge_list - x(edge_list) ./ (x(edge_list + 1) - x(edge_list));
+
 
 event_struct.interval_locations =...
   (fine_edge_list(1 : end - 1) + fine_edge_list(2 : end)) / 2 / fs;
@@ -229,7 +239,9 @@ function [f0, vuv] = FixF0Contour(f0_candidates, frame_period, f0_floor,...
 voice_range_minimum = round(1 / (frame_period / 1000) / f0_floor) * 2 + 1;
 
 f0_step1 = FixStep1(f0_candidates, voice_range_minimum, allowed_range);
+
 f0_step2 = FixStep2(f0_step1, voice_range_minimum);
+%display(f0_step2)
 section_list = CountNumberOfVoicedSections(f0_step2);
 f0_step3 = FixStep3(f0_step2, f0_candidates, section_list, allowed_range);
 
@@ -242,11 +254,13 @@ vuv(vuv ~= 0) = 1;
 % Step1: rapid change of f0 contour is replaced by 0
 function f0_step1 =...
   FixStep1(f0_candidates, voice_range_minimum, allowed_range)
+  
 f0_base = f0_candidates(1, :);
 f0_base(1 : voice_range_minimum) = 0;
 f0_base(end - voice_range_minimum + 1 : end) = 0;
 
 f0_step1 = f0_base;
+
 for i = voice_range_minimum : length(f0_base)
   if abs((f0_base(i) - f0_base(i-1)) / (0.000001 + f0_base(i))) > allowed_range
     f0_step1(i) = 0;
@@ -257,6 +271,7 @@ end;
 % Step2: short-time voiced period (under voice_range_minimum) is replaced by 0
 function f0_step2 = FixStep2(f0_step1, voice_range_minimum)
 f0_step2 = f0_step1;
+
 for i = (voice_range_minimum - 1) / 2 + 1 :...
     length(f0_step1) - (voice_range_minimum - 1) / 2
   for j = -(voice_range_minimum - 1) / 2 : (voice_range_minimum - 1) / 2
@@ -330,12 +345,16 @@ vuv(vuv ~= 0) = 1;
 
 diff_vuv = diff(vuv);
 boundary_list = [0; find(diff_vuv ~= 0); length(vuv) - 1];
+
 first_section = ceil(-0.5 * diff_vuv(boundary_list(2)));
+
 number_of_voiced_sections =...
   floor((length(boundary_list) - (1 - first_section)) / 2);
+
 voiced_section_list = zeros(number_of_voiced_sections, 2);
 for i = 1 : number_of_voiced_sections
   voiced_section_list(i, :) =...
     [1 + boundary_list((i - 1) * 2 + 1 + (1 - first_section)),...
     boundary_list((i * 2) + (1 - first_section))];
+  display(voiced_section_list(i, :))
 end;
