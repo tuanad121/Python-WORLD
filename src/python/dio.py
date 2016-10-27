@@ -1,6 +1,6 @@
 # 3rd-party imports
 import math
-from scipy.signal import decimate
+from scipy.signal import resample, decimate
 from scipy.interpolate import interp1d
 
 import numpy as np
@@ -27,21 +27,20 @@ def Dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
     boundary_f0_list = [2.0 ** elm for elm in boundary_f0_list]
     boundary_f0_list = np.array([f0_floor * elm for elm in boundary_f0_list])
     #down sample to target Hz
-    #y, actual_fs = CalculateDownsampledSignal(x, fs, target_fs) #comeback and check later, cannot check on octave
-    y=x;
-    actual_fs = fs;
+    y, actual_fs = CalculateDownsampledSignal(x, fs, target_fs) #comeback and check later, cannot check on octave    
+    
+    #y=x;
+    #actual_fs = fs;
     #
-    y_spectrum = CalculateSpectrum(x, actual_fs, f0_floor)
+    y_spectrum = CalculateSpectrum(y, actual_fs, f0_floor)
     raw_f0_candidate, raw_stability = CalculateCandidateAndStabirity(np.size(temporal_positions), \
                                                                      boundary_f0_list, np.size(y), \
                                                                      temporal_positions, actual_fs, \
                                                                      y_spectrum, f0_floor, f0_ceil)    
     
     f0_candidates, _ = SortCandidates(raw_f0_candidate, raw_stability)# not test yet
-    FixF0Contour(f0_candidates, frame_period, f0_floor, allowed_range)
-    vuv = []
-    
-    return {'f0':f0_candidates[0],
+    f0, vuv = FixF0Contour(f0_candidates, frame_period, f0_floor, allowed_range)
+    return {'f0':f0,
             'f0_candidates':f0_candidates,
             'raw_f0_candidates':raw_f0_candidate,
             'temporal_positions':temporal_positions,
@@ -58,9 +57,10 @@ def CalculateDownsampledSignal(x, fs, target_fs):
         actual_fs = fs
         return y, actual_fs
     else: 
-        y = decimate(x, decimation_ratio, 3)
+        y = decimate(x, decimation_ratio, ftype='iir', n = 3, zero_phase=True)
         y = y - np.mean(y)
         actual_fs = fs/decimation_ratio
+        
         return y, actual_fs
   
 ##########################################################################################################   
@@ -104,7 +104,7 @@ def CalculateCandidateAndStabirity(number_of_frames, \
 def SortCandidates(f0_candidate_map, stability_map):
     #not test yet ***********
     number_of_candidates, number_of_frames = f0_candidate_map.shape
-    sorted_index = np.argsort(-stability_map, axis = 0, kind='quicksort')
+    sorted_index = np.argsort(-stability_map, axis=0, kind='quicksort')
     f0_candidates = np.zeros((number_of_candidates, number_of_frames))
     f0_candidates_score = np.zeros((number_of_candidates, number_of_frames))    
     for i in range(number_of_frames):
@@ -173,8 +173,8 @@ def GetF0Candidates(negative_zero_cross, positive_zero_cross, peak, dip, tempora
         f0_deviations = temporal_positions * 0 + 1000;        
     return interpolated_f0, f0_deviations
 
-#negative zero crossing: going from positive to negative
 ##########################################################################################################
+#negative zero crossing: going from positive to negative
 def ZeroCrossingEngine(x, fs):
     #y=x.tolist()
     negative_going_points = []
@@ -212,13 +212,15 @@ def FixF0Contour(f0_candidates, frame_period, f0_floor, \
     f0_step1 = FixStep1(f0_candidates, voice_range_minimum, allowed_range)
     f0_step2 = FixStep2(f0_step1, voice_range_minimum)
     section_list = CountNumberOfVoicedSections(f0_step2)
-    #f0_step3 = FixStep3(f0_step2, f0_candidates, section_list, allowed_range)
     
-    #f0_step4 = FixStep4(f0_step3, f0_candidates, section_list, allowed_range)
-    #f0 = f0_step4
-    #vuv = f0
-    #vuv(vuv ~= 0) = 1
-    return 0
+    f0_step3 = FixStep3(f0_step2, f0_candidates, section_list, allowed_range)
+    
+    f0_step4 = FixStep4(f0_step3, f0_candidates, section_list, allowed_range)
+    
+    f0 = np.copy(f0_step4)
+    vuv = np.copy(f0)
+    vuv[vuv != 0] = 1
+    return f0, vuv
 
 ##########################################################################################################
 #Step 1: Rapid change of F0 is replaced by zeros
@@ -244,39 +246,65 @@ def FixStep2(f0_step1, voice_range_minimum):
                 f0_step2[i] = 0
                 break
     return f0_step2
+
 ##########################################################################################################
 #Step3: short-time voiced period (under voice_range_minimum) is replaced by 0
 def FixStep3(f0_step2, f0_candidates, section_list,\
-                             allowed_range):
+                             allowed_range):  
     f0_step3 = np.copy(f0_step2)
-    
-    for i in range(section_list.shape[0]):
+    for i in np.arange(section_list.shape[0]):
         if i == section_list.shape[0] - 1:
             limit = len(f0_step3) - 1
         else:
-            limit = section_list[i + 1, 1] + 1
-        for j in range(section_list[i, 2], limit):
-            #f0_step3(j + 1) = SelectBestF0(f0_step3(j), f0_step3(j - 1),\
-            #                               f0_candidates(:, j + 1), allowed_range)
+            limit = section_list[i + 1, 0] + 1
+        #print(len(np.arange(section_list[i, 1], limit)))
+        for j in np.arange(section_list[i, 1], limit).astype(int):
+            f0_step3[j + 1] = SelectBestF0(f0_step3[j], f0_step3[j - 1],\
+                                           f0_candidates[:, j + 1], allowed_range)
             if f0_step3[j + 1] == 0:
                 break
+    return f0_step3
 
 ##########################################################################################################
-
+# Step3: short-time voiced period (under voice_range_minimum) is replaced by 0
+def FixStep4(f0_step3, f0_candidates, section_list, \
+                             allowed_range):
+    f0_step4 = np.copy(f0_step3)
+    
+    for i in range(section_list.shape[0] - 1, -1 , -1):
+        if i == 0:
+            limit = 1
+        else:
+            limit = section_list[i - 1, 1]
+        for j in np.arange(section_list[i, 0], limit - 1,  -1).astype(int):
+            f0_step4[j - 1] = SelectBestF0(f0_step4[j], f0_step4[j + 1], f0_candidates[:, j - 1], allowed_range)
+            if f0_step4[j - 1] == 0:
+                break
+    return f0_step4
 
 ##########################################################################################################
-
-
-##########################################################################################################
+def SelectBestF0(current_f0, past_f0, candidates, allowed_range):
+    reference_f0 = (current_f0 * 3 - past_f0) / 2
+    minimum_error = abs(reference_f0 - candidates[0])
+    best_f0 = candidates[0]
+    
+    for i in range(1, len(candidates)):
+        current_error = abs(reference_f0 - candidates[i])
+        if current_error < minimum_error:
+            minimum_error = current_error
+            best_f0 = candidates[i]
+    if abs(1 - best_f0 / reference_f0) > allowed_range:
+        best_f0 = 0
+    return best_f0
 
 
 ##########################################################################################################
 
 def CountNumberOfVoicedSections(f0):
-    vuv = f0[:]
+    vuv = np.copy(f0)
     vuv[vuv != 0] = 1
     diff_vuv = np.diff(vuv)
-    boundary_list = np.append(np.append([0], np.where(diff_vuv != 0)[0]), [len(vuv) - 2])
+    boundary_list = np.append(np.append([0], np.where(diff_vuv != 0)[0]), [len(vuv) - 2])# take care of len(vuv) - 2 or len(vuv) - 1
     
     first_section = np.ceil(-0.5 * diff_vuv[boundary_list[1]])
     number_of_voiced_sections = np.floor((len(boundary_list) - (1 - first_section)) / 2).astype(int)
