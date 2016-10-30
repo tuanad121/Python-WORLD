@@ -3,9 +3,9 @@ import sys
 
 # 3rd-party imports
 import numpy as np
-
 from scipy.io.wavfile import read as wavread
 from matplotlib import pyplot
+
 # local imports
 #for now, let's stay pysig independent, since we may want to distribute our code freely later
 #sys.path.append('/Users/tuandinh/bakup/pysig/src/python')
@@ -13,6 +13,7 @@ from matplotlib import pyplot
 from dio import Dio
 from dio import ZeroCrossingEngine # yours
 from dio import GetF0Candidates
+from StoneMask import StoneMask
 #import pyworld as pw # official
 
 name='test/test-mwm'
@@ -21,14 +22,21 @@ x = x_int16 / (2 ** 15 - 1)
 
 assert(all(isinstance(elm, np.float) for elm in x))
 f0_data = Dio(x,fs)
+no_stonemask = np.copy(f0_data['f0'])
+f0_data['f0'] = StoneMask(x, fs,f0_data['temporal_positions'], f0_data['f0'])
+print(f0_data['f0'])
+
+#py wrapper testing
 #pyDioOpt = pw.pyDioOption()
 #f02, t = pw.dio(x, fs, pyDioOpt)
 
-f0_matlab = np.genfromtxt('test/dat_mat.csv', delimiter = ',')
+f0_matlab = np.genfromtxt('dat_mat.csv', delimiter = ',')
 fig, ax = pyplot.subplots()
-ax.plot(f0_data['f0'], label = 'F0_DIO_python')
 ax.plot(f0_matlab,'g', label = 'F0_DIO_matlab')
-#ax.plot(np.abs(f0_matlab - f0_data['f0']), 'r', label = 'different')
+ax.plot(f0_data['f0'], label = 'F0_python')
+
+#ax.plot(np.abs(f0_data['f0'] - f0_matlab),'r', label = 'DIFF')
+
 ax.legend(loc = 1)
 pyplot.show()
 print('done')

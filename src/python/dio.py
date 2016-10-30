@@ -1,5 +1,7 @@
-# 3rd-party imports
+# built-in imports
 import math
+
+# 3rd-party imports
 from scipy.signal import resample, decimate
 from scipy.interpolate import interp1d
 
@@ -198,7 +200,7 @@ def ZeroCrossingEngine(x, fs):
 def nuttall(N):
     t = np.asmatrix(np.arange(N) * 2 * math.pi / (N-1))
     coefs = np.array([0.355768, -0.487396, 0.144232, -0.012604])
-    window = np.dot(coefs, np.cos(np.dot(np.matrix([0,1,2,3]).T,t)))
+    window = coefs @ np.cos(np.matrix([0,1,2,3]).T @ t)
     return np.squeeze(np.asarray(window))
 
 ##########################################################################################################
