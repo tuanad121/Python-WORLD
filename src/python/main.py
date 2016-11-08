@@ -41,6 +41,7 @@ f0_matlab = np.genfromtxt('dat_mat.csv', delimiter = ',')
 
 f0_data['f0'] = f0_matlab
 spectrum_parameter = CheapTrick(x, fs, f0_data);
+pyplot.imshow(spectrum_parameter['spectrogram'])
 pyplot.show()
 print('done')
 

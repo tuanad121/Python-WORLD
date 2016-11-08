@@ -12,8 +12,10 @@ def CheapTrick(x, fs, source_object, q1=-0.09):
     for i in range(len(f0_sequence)):
         spectrogram[:,i] = EstimateOneSlice(x, fs, f0_sequence[i],\
                                             temporal_positions[i], fft_size, f0_low_limit, q1)
-
-    return 0
+    return {'temporal_positions': temporal_positions,
+            'spectrogram': spectrogram,
+            'fs': fs
+            }
 ################################################################################################################
 def EstimateOneSlice(x, fs, f0, temporal_position,\
     fft_size, f0_low_limit, q1):
@@ -21,10 +23,9 @@ def EstimateOneSlice(x, fs, f0, temporal_position,\
     waveform = CalculateWaveform(x, fs, f0, temporal_position)
     power_spectrum = CalculatePowerSpectrum(waveform, fs, fft_size, f0)
     smoothed_spectrum = LinearSmoothing(power_spectrum, f0, fs, fft_size)
-    print('bang')
-    #spectral_envelope = SmoothingWithRecovery(smoothed_spectrum; smoothed_spectrum(end - 1 : -1 : 2)], f0, fs,\
-    #    fft_size, q1)   
-    return 0
+    spectral_envelope = SmoothingWithRecovery(np.append(smoothed_spectrum, smoothed_spectrum[-2 : 0 : -1]), f0, fs,\
+        fft_size, q1)
+    return spectral_envelope
 #################################################################################################################
 def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
     power_spectrum = np.abs(np.fft.fft(waveform, fft_size)) ** 2
@@ -58,16 +59,42 @@ def CalculateWaveform(x, fs, f0, temporal_position):
     window = window / np.sqrt(np.sum(window ** 2))
     waveform = segment * window - window * np.mean(segment * window) / np.mean(window)
     return waveform
+###################################################################################################################
 def LinearSmoothing(power_spectrum, f0, fs, fft_size):
-    double_frequency_axis = np.arange(0, 2 * fft_size) / fft_size * fs - fs;
-    #double_spectrum = [power_spectrum; power_spectrum];
+    double_frequency_axis = np.arange(2 * fft_size) / fft_size * fs - fs
+    double_spectrum = np.append(power_spectrum, power_spectrum)
+    double_segment = np.cumsum(double_spectrum * (fs / fft_size))
+    center_frequency = np.arange(fft_size / 2 + 1) / fft_size * fs
+    low_levels = interp1H(double_frequency_axis + fs / fft_size / 2,\
+                          double_segment, center_frequency - f0 / 3)
+    high_levels = interp1H(double_frequency_axis + fs / fft_size / 2,\
+                           double_segment, center_frequency + f0 / 3)
     
-    #double_segment = cumsum(double_spectrum * (fs / fft_size));
-    #center_frequency = (0 : fft_size / 2)' / fft_size * fs;
-    #low_levels = interp1H(double_frequency_axis + fs / fft_size / 2,...
-    #                      double_segment, center_frequency - f0 / 3);
-    #high_levels = interp1H(double_frequency_axis + fs / fft_size / 2,...
-    #                       double_segment, center_frequency + f0 / 3);
-    
-    #smoothed_spectrum = (high_levels - low_levels) * 1.5 / f0;    
-    return 0
+    smoothed_spectrum = (high_levels - low_levels) * 1.5 / f0;
+    return smoothed_spectrum
+####################################################################################################################
+def interp1H(x, y, xi):
+    delta_x = x[1] - x[0]
+    xi = np.maximum(x[0], np.minimum(x[-1], xi))
+    xi_base = np.floor((xi - x[0]) / delta_x)
+    xi_fraction = (xi - x[0]) / delta_x - xi_base
+    delta_y = np.append(np.diff(y), 0)
+    yi = y[xi_base.astype(int)] + delta_y[xi_base.astype(int)] * xi_fraction
+    return yi
+####################################################################################################################
+def SmoothingWithRecovery(smoothed_spectrum, f0, fs, fft_size, q1):
+    quefrency_axis = np.arange(fft_size) / fs
+    smoothing_lifter = np.sin(m.pi * f0 * quefrency_axis) / (m.pi * f0 * quefrency_axis)
+    smoothing_lifter[fft_size / 2 + 1 : ] =\
+        smoothing_lifter[fft_size / 2 - 1 : 0 : -1]
+    smoothing_lifter[0] = 1
+
+    compensation_lifter =\
+        (1 - 2 * q1) + 2 * q1 * np.cos(2 * m.pi * quefrency_axis * f0);
+    compensation_lifter[fft_size / 2 + 1 : ] =\
+        compensation_lifter[fft_size / 2 - 1: 0 : -1]
+    tandem_cepstrum = np.fft.fft(np.log(smoothed_spectrum))
+    tmp_spectral_envelope =\
+        np.exp(np.real(np.fft.ifft(tandem_cepstrum * smoothing_lifter * compensation_lifter)))
+    spectral_envelope = tmp_spectral_envelope[ : fft_size / 2 + 1]
+    return spectral_envelope
