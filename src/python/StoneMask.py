@@ -1,5 +1,6 @@
 # built-in imports
 import math
+from decimal import Decimal, ROUND_HALF_UP
 
 #3rd-party imports
 import numpy as np
@@ -34,12 +35,12 @@ def GetRefinedF0(x, fs, current_time, f0_initial):
     fx = (np.arange(fft_size) / fft_size * fs)
     
     #use octave round() function
-    oc = oct2py.octave
-    index_raw = oc.round((current_time + base_time) * fs)
-    index_raw = np.squeeze(np.asarray(index_raw))
-    
+    #oc = oct2py.octave
+    #index_raw = oc.round((current_time + base_time) * fs) # round half up
+    #index_raw = np.around((current_time + base_time) * fs) # round half to nearest even
+    index_raw = np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in ((current_time + base_time) * fs)])
     #use numpy around() function
-    #index_raw = np.around((current_time + base_time) * fs)
+    
     index_time = (index_raw - 1) / fs
     window_time = index_time - current_time
 
