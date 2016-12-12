@@ -40,10 +40,11 @@ def Dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
                                                                      temporal_positions, actual_fs, \
                                                                      y_spectrum, f0_floor, f0_ceil)    
     
-    f0_candidates, _ = SortCandidates(raw_f0_candidate, raw_stability)# not test yet
+    f0_candidates, _ = SortCandidates(raw_f0_candidate, raw_stability)
+    f0_candidates_tmp = np.copy(f0_candidates)#just want to keep original values of f0_candidates, maybe we don't need this line
     f0, vuv = FixF0Contour(f0_candidates, frame_period, f0_floor, allowed_range)
     return {'f0':f0,
-            'f0_candidates':f0_candidates,
+            'f0_candidates':f0_candidates_tmp,
             'raw_f0_candidates':raw_f0_candidate,
             'temporal_positions':temporal_positions,
             'vuv':vuv

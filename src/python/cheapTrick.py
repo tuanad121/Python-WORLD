@@ -2,6 +2,15 @@ import numpy as np
 import math as m
 from scipy.interpolate import interp1d
 def CheapTrick(x, fs, source_object, q1=-0.09):
+    '''
+    Generate smooth spectrogram from signal x, eliminating the affect of fundamental frequency F0
+    Input:
+    x: ndarray of signal (samples)
+    fs: sampling rate
+    source_object: generated using dio.py
+    Output:
+    A dictionary contains information spectrograms and framming.
+    '''
     f0_low_limit = 71
     default_f0 = 500
     fft_size = 2 ** m.ceil(m.log(3 * fs / f0_low_limit + 1, 2))
@@ -19,6 +28,9 @@ def CheapTrick(x, fs, source_object, q1=-0.09):
 ################################################################################################################
 def EstimateOneSlice(x, fs, f0, temporal_position,\
     fft_size, f0_low_limit, q1):
+    '''
+    Calculate a smooth spectral envelope
+    '''
     if f0 < f0_low_limit: f0 = f0_low_limit #safe guard
     waveform = CalculateWaveform(x, fs, f0, temporal_position)
     power_spectrum = CalculatePowerSpectrum(waveform, fs, fft_size, f0)
@@ -90,7 +102,7 @@ def SmoothingWithRecovery(smoothed_spectrum, f0, fs, fft_size, q1):
     smoothing_lifter[0] = 1
 
     compensation_lifter =\
-        (1 - 2 * q1) + 2 * q1 * np.cos(2 * m.pi * quefrency_axis * f0);
+        (1 - 2 * q1) + 2 * q1 * np.cos(2 * m.pi * quefrency_axis * f0)
     compensation_lifter[fft_size / 2 + 1 : ] =\
         compensation_lifter[fft_size / 2 - 1: 0 : -1]
     tandem_cepstrum = np.fft.fft(np.log(smoothed_spectrum))
