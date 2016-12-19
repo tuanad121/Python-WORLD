@@ -4,6 +4,7 @@ import sys
 # 3rd-party imports
 import numpy as np
 from scipy.io.wavfile import read as wavread
+from scipy.io.wavfile import write
 from matplotlib import pyplot
 
 # local imports
@@ -16,7 +17,9 @@ from dio import GetF0Candidates
 from StoneMask import StoneMask
 from cheapTrick import CheapTrick
 from D4C import D4C
-#import pyworld as pw # official
+from Synthesis import Synthesis
+import pyworld as pw # official
+
 
 name='test/test-mwm'
 fs, x_int16 = wavread('{}.wav'.format(name))
@@ -30,8 +33,12 @@ f0_data['f0'] = StoneMask(x, fs,f0_data['temporal_positions'], f0_data['f0'])
 #print(f0_data['f0'])5
 
 #py wrapper testing
-#pyDioOpt = pw.pyDioOption()
-#f02, t = pw.dio(x, fs, pyDioOpt)
+pyDioOpt = pw.pyDioOption()
+_f0, t = pw.dio(x, fs, pyDioOpt)    # raw pitch extractor
+f0 = pw.stonemask(x, _f0, t, fs)  # pitch refinement
+sp = pw.cheaptrick(x, f0, t, fs)  # extract smoothed spectrogram
+#ap = pw.d4c(x, f0, t, fs)         # extract aperiodicity
+#y = pw.synthesize(f0, sp, ap, fs, pyDioOpt.option['frame_period'])
 
 #f0_matlab = np.genfromtxt('dat_mat.csv', delimiter = ',')
 #f0_data['f0'] = f0_matlab
@@ -41,9 +48,25 @@ f0_data['f0'] = StoneMask(x, fs,f0_data['temporal_positions'], f0_data['f0'])
 #ax.plot(np.abs(f0_data['f0'] - f0_matlab),'r', label = 'DIFF')
 #ax.legend(loc = 0)
 
-#spectrum_parameter = CheapTrick(x, fs, f0_data)
-source_parameter = D4C(x, fs, f0_data)
+filter_object = CheapTrick(x, fs, f0_data)
+source_object = D4C(x, fs, f0_data)
+sp2 = (filter_object['spectrogram'].T).copy(order='C')
+ap2 = (source_object['aperiodicity'].T).copy(order='C')
+
+y2 = pw.synthesize(source_object['f0'], sp2,\
+                   ap2, fs, pyDioOpt.option['frame_period'])
+
+#y = Synthesis(source_object, filter_object)
+write('test.wav', fs, y2)
+#write('test2.wav', fs, y)
+fig, ax = pyplot.subplots(nrows=2, figsize=(12,8), sharex=True)
+ax[0].imshow(20 * np.log10(sp).T)
+ax[0].set_title('C spectrogram')
+ax[1].imshow(20 * np.log10(sp2).T)
+ax[1].set_title('python')
 #pyplot.imshow(spectrum_parameter['spectrogram'])
 #pyplot.show()
+#pyplot.plot(y)
+pyplot.show()
 print('done')
 

@@ -48,9 +48,10 @@ def D4C(x, fs, f0_object):
                                               np.append(np.append(-60, -coarse_aperiodicity), 0), \
                                               kind='linear')(frequency_axis)) / 20)
         
-    return {'aperiodicity': aperiodicity,
-            'coarse_ap': ap_debug
-            }
+    source_object['aperiodicity'] = aperiodicity
+    source_object['coarse_ap'] = ap_debug
+    
+    return source_object
 
 ###################################################################################
 

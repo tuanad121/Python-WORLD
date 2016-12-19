@@ -1,6 +1,11 @@
-import numpy as np
+#build-in imports
 import math as m
+from decimal import Decimal, ROUND_HALF_UP
+
+#3rd party imports
+import numpy as np
 from scipy.interpolate import interp1d
+
 def CheapTrick(x, fs, source_object, q1=-0.09):
     '''
     Generate smooth spectrogram from signal x, eliminating the affect of fundamental frequency F0
@@ -56,17 +61,19 @@ def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
 ##################################################################################################################
 def CalculateWaveform(x, fs, f0, temporal_position):
     #  prepare internal variables
-    fragment_index = np.arange(np.round(1.5 * fs / f0) + 1)
+    fragment_index = np.arange(int(Decimal(1.5 * fs / f0).quantize(0, ROUND_HALF_UP)) + 1)
     number_of_fragments = len(fragment_index)
     base_index = np.append(-fragment_index[number_of_fragments - 1 : 0 : -1], fragment_index)
     index = temporal_position * fs + 1 + base_index
-    safe_index = np.minimum(len(x), np.maximum(1, np.round(index)))
-    safe_index = safe_index.astype(int)
+    safe_index = np.minimum(len(x), \
+                            np.maximum(1, np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in index])))
+    #safe_index = safe_index.astype(int)
     
     #  wave segments and set of windows preparation
     segment = x[safe_index - 1]
     time_axis = base_index / fs / 1.5 +\
-        (temporal_position * fs - np.round(temporal_position * fs)) / fs    
+        (temporal_position * fs - \
+         int(Decimal(temporal_position * fs).quantize(0, ROUND_HALF_UP))) / fs    
     window = 0.5 * np.cos(m.pi * time_axis * f0) + 0.5
     window = window / np.sqrt(np.sum(window ** 2))
     waveform = segment * window - window * np.mean(segment * window) / np.mean(window)
