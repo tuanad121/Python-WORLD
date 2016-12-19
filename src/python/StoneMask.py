@@ -57,8 +57,8 @@ def GetRefinedF0(x, fs, current_time, f0_initial):
     instantaneous_frequency = fx + numerator_i / power_spectrum * fs / 2 / math.pi
     
     trim_index = np.array([1, 2])
-    index_list_trim = np.around(f0_initial * fft_size / fs * trim_index) + 1
-    index_list_trim = index_list_trim.astype(int)
+    index_list_trim = \
+        np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in (f0_initial * fft_size / fs * trim_index)]) + 1
     fixp_list = instantaneous_frequency[index_list_trim - 1]
     amp_list = np.sqrt(power_spectrum[index_list_trim - 1])
     f0_initial = np.sum(amp_list * fixp_list) / np.sum(amp_list * trim_index)
@@ -67,7 +67,9 @@ def GetRefinedF0(x, fs, current_time, f0_initial):
         return 0
     
     trim_index = np.array([1, 2, 3, 4, 5, 6])
-    index_list_trim = np.around(f0_initial * fft_size / fs * trim_index) + 1
+    
+    index_list_trim = \
+        np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in (f0_initial * fft_size / fs * trim_index)]) + 1
     index_list_trim = index_list_trim.astype(int)
     fixp_list = instantaneous_frequency[index_list_trim - 1]
     amp_list = np.sqrt(power_spectrum[index_list_trim - 1])

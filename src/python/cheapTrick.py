@@ -22,7 +22,8 @@ def CheapTrick(x, fs, source_object, q1=-0.09):
     temporal_positions = source_object['temporal_positions']
     f0_sequence = source_object['f0']
     f0_sequence[source_object['vuv'] == 0] = default_f0
-    spectrogram = np.zeros([fft_size / 2 + 1, len(f0_sequence)])
+    
+    spectrogram = np.zeros([fft_size // 2 + 1, len(f0_sequence)])
     for i in range(len(f0_sequence)):
         spectrogram[:,i] = EstimateOneSlice(x, fs, f0_sequence[i],\
                                             temporal_positions[i], fft_size, f0_low_limit, q1)
@@ -46,7 +47,7 @@ def EstimateOneSlice(x, fs, f0, temporal_position,\
 #################################################################################################################
 def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
     power_spectrum = np.abs(np.fft.fft(waveform, fft_size)) ** 2
-    frequency_axis = np.arange(0, fft_size) / fft_size * fs
+    frequency_axis = np.arange(fft_size) / fft_size * fs
     low_frequency_axis = frequency_axis[frequency_axis < 1.2 * f0]
     low_frequency_replica = interp1d(f0 - low_frequency_axis,\
                                     power_spectrum[frequency_axis < 1.2 * f0],\
@@ -55,7 +56,8 @@ def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
         low_frequency_replica[frequency_axis < f0] +\
         power_spectrum[frequency_axis < f0]
     
-    power_spectrum[ -1 : fft_size / 2 : -1] = power_spectrum[1 : fft_size / 2]    
+    power_spectrum[ -1 : int(Decimal(fft_size / 2).quantize(0, ROUND_HALF_UP)) : -1] =\
+        power_spectrum[1 : fft_size // 2]    
     return power_spectrum
     
 ##################################################################################################################
@@ -67,7 +69,6 @@ def CalculateWaveform(x, fs, f0, temporal_position):
     index = temporal_position * fs + 1 + base_index
     safe_index = np.minimum(len(x), \
                             np.maximum(1, np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in index])))
-    #safe_index = safe_index.astype(int)
     
     #  wave segments and set of windows preparation
     segment = x[safe_index - 1]
@@ -83,7 +84,7 @@ def LinearSmoothing(power_spectrum, f0, fs, fft_size):
     double_frequency_axis = np.arange(2 * fft_size) / fft_size * fs - fs
     double_spectrum = np.append(power_spectrum, power_spectrum)
     double_segment = np.cumsum(double_spectrum * (fs / fft_size))
-    center_frequency = np.arange(fft_size / 2 + 1) / fft_size * fs
+    center_frequency = np.arange(int(Decimal(fft_size / 2).quantize(0, ROUND_HALF_UP)) + 1) / fft_size * fs
     low_levels = interp1H(double_frequency_axis + fs / fft_size / 2,\
                           double_segment, center_frequency - f0 / 3)
     high_levels = interp1H(double_frequency_axis + fs / fft_size / 2,\
@@ -104,16 +105,16 @@ def interp1H(x, y, xi):
 def SmoothingWithRecovery(smoothed_spectrum, f0, fs, fft_size, q1):
     quefrency_axis = np.arange(fft_size) / fs
     smoothing_lifter = np.sin(m.pi * f0 * quefrency_axis) / (m.pi * f0 * quefrency_axis)
-    smoothing_lifter[fft_size / 2 + 1 : ] =\
-        smoothing_lifter[fft_size / 2 - 1 : 0 : -1]
+    smoothing_lifter[fft_size // 2 + 1 : ] =\
+        smoothing_lifter[int(Decimal(fft_size / 2).quantize(0, ROUND_HALF_UP)) - 1 : 0 : -1]
     smoothing_lifter[0] = 1
 
     compensation_lifter =\
         (1 - 2 * q1) + 2 * q1 * np.cos(2 * m.pi * quefrency_axis * f0)
-    compensation_lifter[fft_size / 2 + 1 : ] =\
-        compensation_lifter[fft_size / 2 - 1: 0 : -1]
+    compensation_lifter[fft_size // 2 + 1 : ] =\
+        compensation_lifter[int(Decimal(fft_size / 2).quantize(0, ROUND_HALF_UP)) - 1: 0 : -1]
     tandem_cepstrum = np.fft.fft(np.log(smoothed_spectrum))
     tmp_spectral_envelope =\
         np.exp(np.real(np.fft.ifft(tandem_cepstrum * smoothing_lifter * compensation_lifter)))
-    spectral_envelope = tmp_spectral_envelope[ : fft_size / 2 + 1]
+    spectral_envelope = tmp_spectral_envelope[ : int(Decimal(fft_size / 2).quantize(0, ROUND_HALF_UP)) + 1]
     return spectral_envelope
