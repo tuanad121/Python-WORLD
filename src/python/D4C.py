@@ -38,7 +38,6 @@ def D4C(x, fs, f0_object):
         if f0_sequence[i] == 0:
             aperiodicity[:, i] = 0
             continue
-
         coarse_aperiodicity = EstimateOneSlice(x, fs, f0_sequence[i], \
                                            frequency_interval, temporal_positions[i], fft_size, \
                                            number_of_aperiodicity, window)

@@ -24,17 +24,15 @@ def Dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
     '''
     temporal_positions = np.arange(0, np.size(x) / fs, frame_period / 1000) #careful!! check later
     
-    boundary_f0_list = range(math.ceil(math.log(f0_ceil / f0_floor, 2) * channels_in_octave))
-    boundary_f0_list = [elm + 1 for elm in boundary_f0_list]
-    boundary_f0_list = [elm / channels_in_octave for elm in boundary_f0_list]
-    boundary_f0_list = [2.0 ** elm for elm in boundary_f0_list]
-    boundary_f0_list = np.array([f0_floor * elm for elm in boundary_f0_list])
-    #down sample to target Hz
-    y, actual_fs = CalculateDownsampledSignal(x, fs, target_fs) #comeback and check later, cannot check on octave    
+    boundary_f0_list = np.arange(math.ceil(np.log2(f0_ceil / f0_floor) * channels_in_octave)) + 1
     
-    #y=x;
-    #actual_fs = fs;
-    #
+    boundary_f0_list = boundary_f0_list / channels_in_octave 
+    boundary_f0_list = 2.0 ** boundary_f0_list
+    boundary_f0_list = f0_floor * boundary_f0_list
+    
+    #down sample to target Hz
+    y, actual_fs = CalculateDownsampledSignal(x, fs, target_fs)    
+
     y_spectrum = CalculateSpectrum(y, actual_fs, f0_floor)
     raw_f0_candidate, raw_stability = CalculateCandidateAndStabirity(np.size(temporal_positions), \
                                                                      boundary_f0_list, np.size(y), \
@@ -44,6 +42,7 @@ def Dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
     f0_candidates, _ = SortCandidates(raw_f0_candidate, raw_stability)
     f0_candidates_tmp = np.copy(f0_candidates)#just want to keep original values of f0_candidates, maybe we don't need this line
     f0, vuv = FixF0Contour(f0_candidates, frame_period, f0_floor, allowed_range)
+    
     return {'f0':f0,
             'f0_candidates':f0_candidates_tmp,
             'raw_f0_candidates':raw_f0_candidate,
