@@ -106,7 +106,7 @@ def TimeBaseGeneration(temporal_positions, f0, fs, vuv, signal_time, default_f0)
         f0_interpolated[f0_interpolated == 0] + default_f0
 
     total_phase = np.cumsum(2 * np.pi * f0_interpolated / fs)
-    pulse_locations = signal_time[np.abs(np.diff(np.remainder(total_phase, 2 * np.pi))) > np.pi / 2]
+    pulse_locations = signal_time[np.abs(np.diff(np.remainder(total_phase, 2 * np.pi))) > np.pi / 2] # FIXME: diff decreases length by one!
     pulse_locations_index = np.array([int(Decimal(elm * fs).quantize(0, ROUND_HALF_UP)) for elm in pulse_locations]) + 1
     return pulse_locations, pulse_locations_index, vuv_interpolated
 

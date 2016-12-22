@@ -9,8 +9,8 @@ from scipy.interpolate import interp1d
 
 def D4C(x, fs, f0_object):
     f0_low_limit = 71
-    fft_size = 2 ** np.ceil(np.log2(4 * fs / f0_low_limit + 1))
-    fft_size_for_spectrum = 2 ** np.ceil(np.log2(3 * fs / f0_low_limit + 1))
+    fft_size = int(2 ** np.ceil(np.log2(4 * fs / f0_low_limit + 1)))
+    fft_size_for_spectrum = int(2 ** np.ceil(np.log2(3 * fs / f0_low_limit + 1)))
     upper_limit = 15000
     frequency_interval = 3000
     source_object = f0_object
@@ -19,15 +19,14 @@ def D4C(x, fs, f0_object):
     f0_sequence = f0_object['f0']
     f0_sequence[f0_object['vuv'] == 0] = 0
 
-    number_of_aperiodicity = \
-    np.floor(np.min([upper_limit, fs / 2 - frequency_interval]) / frequency_interval)
+    number_of_aperiodicity = int(np.floor(np.min([upper_limit, fs / 2 - frequency_interval]) / frequency_interval))
 
     # The window function used for the CalculateFeature() is designed here to
     # speed up
     window_length = np.floor(frequency_interval / (fs / fft_size)) * 2 + 1
     window = nuttall(window_length)
 
-    aperiodicity = np.zeros([fft_size_for_spectrum / 2 + 1, len(f0_sequence)])
+    aperiodicity = np.zeros([fft_size_for_spectrum // 2 + 1, len(f0_sequence)])
     ap_debug = np.zeros([number_of_aperiodicity, len(f0_sequence)])
 
     frequency_axis = np.arange(fft_size_for_spectrum / 2 + 1) * fs / fft_size_for_spectrum
@@ -142,7 +141,7 @@ def CalculateStaticGroupDelay(static_centroid,\
     group_delay = LinearSmoothing(group_delay, fs, fft_size, f0 / 2)
     group_delay = np.append(group_delay, group_delay[-2 : 0 : -1])
     smoothed_group_delay = LinearSmoothing(group_delay, fs, fft_size, f0)
-    group_delay = group_delay[0 : fft_size / 2 + 1] - smoothed_group_delay
+    group_delay = group_delay[0 : fft_size // 2 + 1] - smoothed_group_delay
     group_delay = np.append(group_delay, group_delay[-2 : 0 : -1])
     return group_delay
 
@@ -169,18 +168,18 @@ def CalculateCoarseAperiodicity(group_delay, fs,\
     boundary = int(Decimal(fft_size / len(window) * 8).quantize(0, ROUND_HALF_UP))
     
     
-    half_window_length = np.floor(len(window) / 2)
+    half_window_length = int(np.floor(len(window) / 2))
     coarse_aperiodicity = np.zeros(number_of_aperiodicity)
     for i in range(int(number_of_aperiodicity)):
-        center = np.floor(frequency_interval * (i + 1) / (fs / fft_size))
+        center = int(np.floor(frequency_interval * (i + 1) / (fs / fft_size)))
         segment = group_delay[center - half_window_length :\
                                center + half_window_length + 1] * window
         power_spectrum = np.abs(np.fft.fft(segment, fft_size)) ** 2
     
         cumulative_power_spectrum =\
-            np.cumsum(np.sort(power_spectrum[0 : fft_size / 2 + 1]))
+            np.cumsum(np.sort(power_spectrum[0 : fft_size // 2 + 1]))
         coarse_aperiodicity[i] =\
-            -10 * np.log10(cumulative_power_spectrum[fft_size / 2 - boundary - 1] / \
+            -10 * np.log10(cumulative_power_spectrum[fft_size // 2 - boundary - 1] / \
                         cumulative_power_spectrum[-1])
     return coarse_aperiodicity
 
@@ -193,9 +192,9 @@ def DCCorrection(signal, fs, fft_size, f0):
                                      signal[frequency_axis < 1.2 * f0],\
                                     fill_value='extrapolate')(low_frequency_axis)
     signal[frequency_axis < f0] =\
-        low_frequency_replica[frequency_axis < f0] + signal[frequency_axis < f0]
+        low_frequency_replica[frequency_axis[:len(low_frequency_replica)] < f0] + signal[frequency_axis < f0]
     
-    signal[-1 : fft_size / 2 + 2 - 2 : -1] = signal[1 : fft_size / 2]
+    signal[-1 : fft_size // 2 : -1] = signal[1 : fft_size // 2]
     return signal
 
 ##########################################################################################################

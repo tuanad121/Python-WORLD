@@ -79,8 +79,8 @@ def CalculateSpectrum(x, fs, lowest_f0):
     low_cut_filter = np.concatenate([low_cut_filter,np.zeros(fft_size - np.size(low_cut_filter))])
     low_cut_filter = np.concatenate([low_cut_filter[cutoff_in_sample:], low_cut_filter[:cutoff_in_sample]])
     
-    x_spetrum = np.fft.fft(x, fft_size) * np.fft.fft(low_cut_filter, fft_size)
-    return x_spetrum
+    x_spectrum = np.fft.fft(x, fft_size) * np.fft.fft(low_cut_filter, fft_size)
+    return x_spectrum
 
 ##########################################################################################################
 

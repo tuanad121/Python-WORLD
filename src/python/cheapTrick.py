@@ -53,7 +53,7 @@ def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
                                     power_spectrum[frequency_axis < 1.2 * f0],\
                                     fill_value='extrapolate')(low_frequency_axis)
     power_spectrum[frequency_axis < f0] =\
-        low_frequency_replica[frequency_axis < f0] +\
+        low_frequency_replica[frequency_axis[:len(low_frequency_replica)] < f0] +\
         power_spectrum[frequency_axis < f0]
     
     power_spectrum[ -1 : int(Decimal(fft_size / 2).quantize(0, ROUND_HALF_UP)) : -1] =\
@@ -104,10 +104,10 @@ def interp1H(x, y, xi):
 ####################################################################################################################
 def SmoothingWithRecovery(smoothed_spectrum, f0, fs, fft_size, q1):
     quefrency_axis = np.arange(fft_size) / fs
-    smoothing_lifter = np.sin(m.pi * f0 * quefrency_axis) / (m.pi * f0 * quefrency_axis)
+    smoothing_lifter = np.r_[1, np.sin(m.pi * f0 * quefrency_axis[1:]) / (m.pi * f0 * quefrency_axis[1:])]
     smoothing_lifter[fft_size // 2 + 1 : ] =\
         smoothing_lifter[int(Decimal(fft_size / 2).quantize(0, ROUND_HALF_UP)) - 1 : 0 : -1]
-    smoothing_lifter[0] = 1
+    #smoothing_lifter[0] = 1
 
     compensation_lifter =\
         (1 - 2 * q1) + 2 * q1 * np.cos(2 * m.pi * quefrency_axis * f0)
