@@ -85,7 +85,7 @@ def Synthesis(source_object, filter_object):
         tmp_complex_cepstrum[latter_index.astype(int) - 1] = tmp_cepstrum[latter_index.astype(int) - 1] * 2
         tmp_complex_cepstrum[0] = tmp_cepstrum[0]
         response = np.fft.fftshift(np.real(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum)))))
-        noise_input = np.random.standard_normal(max(3, noise_size))
+        noise_input = np.random.randn(max(3, noise_size))
         
         y[output_buffer_index.astype(int) - 1] = y[output_buffer_index.astype(int) - 1] + \
             fftfilt(noise_input - np.mean(noise_input), response)   

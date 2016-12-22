@@ -38,13 +38,13 @@ _f0, t = pw.dio(x, fs, pyDioOpt)    # raw pitch extractor
 f0 = pw.stonemask(x, _f0, t, fs)  # pitch refinement
 sp = pw.cheaptrick(x, f0, t, fs)  # extract smoothed spectrogram
 ap = pw.d4c(x, f0, t, fs)         # extract aperiodicity
-y = pw.synthesize(f0, sp, ap, fs, pyDioOpt.option['frame_period'])
+#y = pw.synthesize(f0, sp, ap, fs, pyDioOpt.option['frame_period'])
 
 # load Matlab results
-#f0_matlab = np.genfromtxt('f0.csv', delimiter = ',')
-#sp_matlab = np.genfromtxt('spec.csv', delimiter = ',')
-#ap_matlab = np.genfromtxt('ap.csv', delimiter = ',')
-y_matlab = np.genfromtxt('sig.csv', delimiter = ',')
+f0_matlab = np.genfromtxt('f0.csv', delimiter = ',')
+sp_matlab = np.genfromtxt('spec.csv', delimiter = ',')
+ap_matlab = np.genfromtxt('ap.csv', delimiter = ',')
+#y_matlab = np.genfromtxt('sig.csv', delimiter = ',')
 
 #f0_data['f0'] = f0_matlab
 #fig, ax = pyplot.subplots()
@@ -66,17 +66,29 @@ y2 = Synthesis(source_object, filter_object)
 #write('test.wav', fs, y2)
 #write('test2.wav', fs, y)
 
-#fig, ax = pyplot.subplots(nrows=3, figsize=(12,8), sharex=True)
-#ax[0].imshow(20 * np.log10(sp).T)
-#ax[0].plot(y)
-#ax[0].set_title('C signal')
-#ax[1].imshow(20 * np.log10(sp2).T)
-#ax[1].plot(y2)
-#ax[1].set_title('python signal')
-#ax[2].imshow(20 * np.log10(sp_matlab))
-#ax[2].plot(y_matlab, alpha=0.3)
-#pyplot.imshow(spectrum_parameter['spectrogram'])
-#pyplot.plot(y)
-#pyplot.show()
+fig, ax = pyplot.subplots(nrows=2, figsize=(12,8), sharex=True)
+ax[0].imshow(20 * np.log10(sp).T, cmap=pyplot.cm.gray_r)
+ax[0].set_ylabel('frequency bin')
+ax_prime0 = ax[0].twinx()
+ax_prime0.plot(f0)
+ax_prime0.set_ylabel('Hz')
+ax[0].set_title('C spectrogram')
+
+#ax[1].imshow(20 * np.log10(sp2).T, cmap=pyplot.cm.gray_r)
+#ax[1].set_ylabel('frequency bin')
+#ax_prime1 = ax[1].twinx()
+#ax_prime1.plot(f0_matlab)
+#ax_prime1.set_ylabel('Hz')
+#ax[1].set_title('python spectrogram')
+
+ax[1].imshow(20 * np.log10(sp_matlab),cmap=pyplot.cm.gray_r)
+ax[1].set_ylabel('frequency bin')
+ax_prime2 = ax[1].twinx()
+ax_prime2.plot(source_object['f0'])
+ax_prime2.set_ylabel('Hz')
+ax[1].set_title('matlab spectrogram')
+ax[1].set_xlabel('frames')
+
+pyplot.show()
 print('done')
 
