@@ -1,5 +1,6 @@
 # built-in imports
 import math
+from decimal import Decimal, ROUND_HALF_UP
 
 # 3rd-party imports
 from scipy.signal import resample, decimate
@@ -23,27 +24,27 @@ def Dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
     '''
     temporal_positions = np.arange(0, np.size(x) / fs, frame_period / 1000) #careful!! check later
     
-    boundary_f0_list = range(math.ceil(math.log(f0_ceil / f0_floor, 2) * channels_in_octave))
-    boundary_f0_list = [elm + 1 for elm in boundary_f0_list]
-    boundary_f0_list = [elm / channels_in_octave for elm in boundary_f0_list]
-    boundary_f0_list = [2.0 ** elm for elm in boundary_f0_list]
-    boundary_f0_list = np.array([f0_floor * elm for elm in boundary_f0_list])
-    #down sample to target Hz
-    y, actual_fs = CalculateDownsampledSignal(x, fs, target_fs) #comeback and check later, cannot check on octave    
+    boundary_f0_list = np.arange(math.ceil(np.log2(f0_ceil / f0_floor) * channels_in_octave)) + 1
     
-    #y=x;
-    #actual_fs = fs;
-    #
+    boundary_f0_list = boundary_f0_list / channels_in_octave 
+    boundary_f0_list = 2.0 ** boundary_f0_list
+    boundary_f0_list = f0_floor * boundary_f0_list
+    
+    #down sample to target Hz
+    y, actual_fs = CalculateDownsampledSignal(x, fs, target_fs)    
+
     y_spectrum = CalculateSpectrum(y, actual_fs, f0_floor)
     raw_f0_candidate, raw_stability = CalculateCandidateAndStabirity(np.size(temporal_positions), \
                                                                      boundary_f0_list, np.size(y), \
                                                                      temporal_positions, actual_fs, \
                                                                      y_spectrum, f0_floor, f0_ceil)    
     
-    f0_candidates, _ = SortCandidates(raw_f0_candidate, raw_stability)# not test yet
+    f0_candidates, _ = SortCandidates(raw_f0_candidate, raw_stability)
+    f0_candidates_tmp = np.copy(f0_candidates)#just want to keep original values of f0_candidates, maybe we don't need this line
     f0, vuv = FixF0Contour(f0_candidates, frame_period, f0_floor, allowed_range)
+    
     return {'f0':f0,
-            'f0_candidates':f0_candidates,
+            'f0_candidates':f0_candidates_tmp,
             'raw_f0_candidates':raw_f0_candidate,
             'temporal_positions':temporal_positions,
             'vuv':vuv
@@ -52,7 +53,7 @@ def Dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
 ##########################################################################################################
 
 def CalculateDownsampledSignal(x, fs, target_fs):
-    decimation_ratio = int(np.round(fs / target_fs))
+    decimation_ratio = int(Decimal(fs / target_fs).quantize(0, ROUND_HALF_UP))
     if fs < target_fs:
         y = x
         y = y - np.mean(y)
@@ -68,9 +69,10 @@ def CalculateDownsampledSignal(x, fs, target_fs):
 ##########################################################################################################   
 
 def CalculateSpectrum(x, fs, lowest_f0):
-    fft_size = 2 ** math.ceil( math.log(np.size(x) + np.round(fs / lowest_f0 / 2) * 4,2) ) #strange
+    fft_size = 2 ** math.ceil(math.log(np.size(x) + \
+                                        int(Decimal(fs / lowest_f0 / 2).quantize(0, ROUND_HALF_UP)) * 4,2)) 
     #low-cut filtering
-    cutoff_in_sample = int(np.round(fs / 50))
+    cutoff_in_sample = int(Decimal(fs / 50).quantize(0, ROUND_HALF_UP))
     low_cut_filter = np.hanning(2 * cutoff_in_sample + 1)
     low_cut_filter = -low_cut_filter / np.sum(low_cut_filter)
     low_cut_filter[cutoff_in_sample] = low_cut_filter[cutoff_in_sample] + 1
@@ -118,8 +120,8 @@ def SortCandidates(f0_candidate_map, stability_map):
 
 ########################################################################################################## 
 
-def CalculateRawEvent(boundary_f0,fs, y_spectrum, y_length, temporal_positions, f0_floor, f0_ceil):
-    half_filter_length = np.round(fs / boundary_f0 / 2)
+def CalculateRawEvent(boundary_f0, fs, y_spectrum, y_length, temporal_positions, f0_floor, f0_ceil):
+    half_filter_length = int(Decimal(fs / boundary_f0 / 2).quantize(0, ROUND_HALF_UP))
     low_pass_filter = nuttall(half_filter_length * 4)
     index_bias = low_pass_filter.argmax()
     spectrum_low_pass_filter = np.fft.fft(low_pass_filter, len(y_spectrum))
@@ -210,7 +212,7 @@ def FixF0Contour(f0_candidates, frame_period, f0_floor, \
 # if abs((f0(n) - f0(n+1)) / f0(n)) exceeds this value,
 # f0(n) is not reliable.
 # F0 is continuous at least voice_range_minimum (sample)
-    voice_range_minimum = round(1 / (frame_period / 1000) / f0_floor) * 2 + 1
+    voice_range_minimum =int(Decimal(1 / (frame_period / 1000) / f0_floor).quantize(0, ROUND_HALF_UP)) * 2 + 1
     f0_step1 = FixStep1(f0_candidates, voice_range_minimum, allowed_range)
     f0_step2 = FixStep2(f0_step1, voice_range_minimum)
     section_list = CountNumberOfVoicedSections(f0_step2)
