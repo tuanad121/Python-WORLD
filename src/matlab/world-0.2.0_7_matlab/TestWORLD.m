@@ -4,21 +4,21 @@
 
 [x, fs] = audioread('test-mwm.wav');
 
-if 0 % You can use Dio
+if 1 % You can use Dio
 f0_parameter = Dio(x, fs);
 % StoneMask is an option for improving the F0 estimation performance.
 % You can skip this processing.
 f0_parameter.f0 = StoneMask(x, fs,...
   f0_parameter.temporal_positions, f0_parameter.f0);
-end;
-f0_parameter = Harvest(x, fs);
 
+f0_parameter = Harvest(x, fs);
+end;
 spectrum_parameter = CheapTrick(x, fs, f0_parameter);
 source_parameter = D4C(x, fs, f0_parameter);
 
 y = Synthesis(source_parameter, spectrum_parameter);
 
-return;
+%return;
 
 soundsc(x, fs);
 pause(length(x) / fs);
