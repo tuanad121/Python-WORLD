@@ -9,6 +9,15 @@ from decimal import Decimal, ROUND_HALF_UP
 import sys
 from fftfilt import fftfilt
 
+import cython
+#@cython.boundscheck(False)
+#@cython.wraparound(False)
+#@cython.nonecheck(False)
+
+#import numba
+
+@cython.locals(i=cython.int)
+#@numba.jit()
 def Synthesis(source_object, filter_object):
     '''
     Waveform synthesis from the estimated parameters
@@ -34,10 +43,10 @@ def Synthesis(source_object, filter_object):
         TimeBaseGeneration(temporal_positions, f0, fs, vuv, signal_time, default_f0)  
     
     fft_size = (spectrogram.shape[0] - 1) * 2
-    base_index = np.arange(-fft_size / 2 + 1, fft_size / 2 + 1)
+    base_index = np.arange(-fft_size // 2 + 1, fft_size // 2 + 1)
     y_length = len(y)
     tmp_complex_cepstrum = np.zeros(fft_size)
-    latter_index = np.arange(fft_size / 2 + 1, fft_size + 1)
+    latter_index = np.arange(fft_size // 2 + 1, fft_size + 1)
     
     temporal_position_index = interp1d(temporal_positions, \
                                        np.arange(1, len(temporal_positions) + 1), \
@@ -57,23 +66,35 @@ def Synthesis(source_object, filter_object):
         noise_size = \
             pulse_locations_index[min(len(pulse_locations_index) - 1, i + 1)] - \
             pulse_locations_index[i]
-        output_buffer_index = \
-            np.maximum(1, np.minimum(y_length, pulse_locations_index[i] + base_index))
+        output_buffer_index = np.maximum(1, np.minimum(y_length, pulse_locations_index[i] + base_index))
         
         if interpolated_vuv[pulse_locations_index[i] - 1] >= 0.5:
             
-            tmp_periodic_spectrum = spectrum_slice * periodic_slice
-            tmp_periodic_spectrum[tmp_periodic_spectrum == 0] = sys.float_info.epsilon
-            periodic_spectrum = \
-                np.append(tmp_periodic_spectrum, tmp_periodic_spectrum[-2 : 0 : -1])
-    
-            tmp_cepstrum = np.real(np.fft.fft(np.log(np.abs(periodic_spectrum)) / 2))
+            #tmp_periodic_spectrum = spectrum_slice * periodic_slice
+            spectrum_slice *= periodic_slice
+
+            #tmp_periodic_spectrum[tmp_periodic_spectrum == 0] = sys.float_info.epsilon
+            spectrum_slice[spectrum_slice == 0] = sys.float_info.epsilon
+
+            #periodic_spectrum = np.append(tmp_periodic_spectrum, tmp_periodic_spectrum[-2 : 0 : -1])
+            periodic_spectrum = np.append(spectrum_slice, spectrum_slice[-2 : 0 : -1])
+
+
+            tmp_cepstrum = np.fft.fft(np.log(np.abs(periodic_spectrum)) / 2).real
             tmp_complex_cepstrum[latter_index.astype(int) - 1] = tmp_cepstrum[latter_index.astype(int) - 1] * 2
             tmp_complex_cepstrum[0] = tmp_cepstrum[0]
-    
-            response = np.fft.fftshift(np.real(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum)))))
-            y[output_buffer_index.astype(int) - 1] =\
-                y[output_buffer_index.astype(int) - 1] + response * np.sqrt(max(1, noise_size))
+
+            #  TODO: possible speed up via rfft?
+            #tmp_cepstrum = np.fft.rfft(np.log(np.abs(periodic_spectrum)) / 2)
+            #tmp_complex_cepstrum[latter_index.astype(int) - 1] = tmp_cepstrum * 2
+            #tmp_complex_cepstrum[0] = tmp_cepstrum[0]
+
+
+            response = np.fft.fftshift(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum))).real)
+            #y[output_buffer_index.astype(int) - 1] =\
+            #    y[output_buffer_index.astype(int) - 1] + response * np.sqrt(max(1, noise_size))
+            response *= np.sqrt(max(1, noise_size))
+            y[output_buffer_index.astype(int) - 1] += response
             tmp_aperiodic_spectrum = spectrum_slice * aperiodic_slice
         else:
             tmp_aperiodic_spectrum = spectrum_slice
@@ -84,11 +105,10 @@ def Synthesis(source_object, filter_object):
         tmp_cepstrum = np.real(np.fft.fft(np.log(np.abs(aperiodic_spectrum)) / 2))
         tmp_complex_cepstrum[latter_index.astype(int) - 1] = tmp_cepstrum[latter_index.astype(int) - 1] * 2
         tmp_complex_cepstrum[0] = tmp_cepstrum[0]
-        response = np.fft.fftshift(np.real(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum)))))
+        response2 = np.fft.fftshift(np.real(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum)))))
         noise_input = np.random.randn(max(3, noise_size))
         
-        y[output_buffer_index.astype(int) - 1] = y[output_buffer_index.astype(int) - 1] + \
-            fftfilt(noise_input - np.mean(noise_input), response)   
+        y[output_buffer_index - 1] += fftfilt(noise_input - np.mean(noise_input), response2)
         
     return y
 
@@ -106,7 +126,8 @@ def TimeBaseGeneration(temporal_positions, f0, fs, vuv, signal_time, default_f0)
         f0_interpolated[f0_interpolated == 0] + default_f0
 
     total_phase = np.cumsum(2 * np.pi * f0_interpolated / fs)
-    pulse_locations = signal_time[np.abs(np.diff(np.remainder(total_phase, 2 * np.pi))) > np.pi / 2] # FIXME: diff decreases length by one!
+    temp = np.diff(np.remainder(total_phase, 2 * np.pi))
+    pulse_locations = signal_time[np.abs(np.r_[temp[0], temp]) > np.pi / 2] # TODO: check whether this is the correct strategy
     pulse_locations_index = np.array([int(Decimal(elm * fs).quantize(0, ROUND_HALF_UP)) for elm in pulse_locations]) + 1
     return pulse_locations, pulse_locations_index, vuv_interpolated
 
@@ -114,29 +135,38 @@ def TimeBaseGeneration(temporal_positions, f0, fs, vuv, signal_time, default_f0)
 
 def GetSpectralParameters(temporal_positions, temporal_position_index,\
                           spectrogram, amplitude_periodic, amplitude_random, pulse_locations):
-    floor_index = np.floor(temporal_position_index)
-    ceil_index = np.ceil(temporal_position_index)
-    t1 = temporal_positions[int(floor_index - 1)]
-    t2 = temporal_positions[int(ceil_index - 1)]
-    
+    floor_index = int(np.floor(temporal_position_index)) - 1
+    ceil_index  = int(np.ceil(temporal_position_index)) - 1
+    t1 = temporal_positions[floor_index]
+    t2 = temporal_positions[ceil_index]
+
+    x = max(t1, min(t2, pulse_locations))
+
     if t1 == t2:
-        spectrum_slice = spectrogram[:, floor_index - 1]
-        periodic_slice = amplitude_periodic[:, floor_index - 1]
-        aperiodic_slice = amplitude_random[:, floor_index - 1]
+        spectrum_slice = spectrogram[:, floor_index]
+        periodic_slice = amplitude_periodic[:, floor_index]
+        aperiodic_slice = amplitude_random[:, floor_index]
     else:
-        spectrum_slice = \
-            interp1d(np.append(t1, t2), np.hstack([spectrogram[:, int(floor_index - 1)].reshape(-1, 1), \
-                                                   spectrogram[:, int(ceil_index - 1)].reshape(-1, 1)])) \
-            (max(t1, min(t2, pulse_locations)))
+        #t = np.append(t1, t2)
+        b = (x - t1) / (t2 - t1)
+        assert 0 <= b <= 1
+        a = 1 - b
+        spectrum_slice = a * spectrogram[:, floor_index] + \
+                         b * spectrogram[:, ceil_index]
+            #interp1d(t, np.hstack([spectrogram[:, floor_index].reshape(-1, 1), \
+            #                       spectrogram[:, ceil_index].reshape(-1, 1)])) \
+            #(max(t1, min(t2, pulse_locations)))
         
-        periodic_slice = \
-            interp1d(np.append(t1, t2), np.hstack([amplitude_periodic[:, int(floor_index - 1)].reshape(-1, 1), \
-                                                  amplitude_periodic[:, int(ceil_index - 1)].reshape(-1, 1)])) \
-            (max(t1, min(t2, pulse_locations)))
+        periodic_slice = a * amplitude_periodic[:, floor_index] + \
+                         b * amplitude_periodic[:, ceil_index]
+            #interp1d(t, np.hstack([amplitude_periodic[:, floor_index].reshape(-1, 1), \
+            #                       amplitude_periodic[:, ceil_index].reshape(-1, 1)])) \
+            #(max(t1, min(t2, pulse_locations)))
         
-        aperiodic_slice = \
-            interp1d(np.append(t1, t2), np.hstack([amplitude_random[:, int(floor_index - 1)].reshape(-1, 1), \
-                                                 amplitude_random[:, int(ceil_index - 1)].reshape(-1, 1)])) \
-            (max(t1, min(t2, pulse_locations)))   
+        aperiodic_slice = a * amplitude_random[:, floor_index] + \
+                          b * amplitude_random[:, ceil_index]
+            #interp1d(t, np.hstack([amplitude_random[:, floor_index].reshape(-1, 1), \
+            #                       amplitude_random[:, ceil_index].reshape(-1, 1)])) \
+            #(max(t1, min(t2, pulse_locations)))
     
     return spectrum_slice, periodic_slice, aperiodic_slice    

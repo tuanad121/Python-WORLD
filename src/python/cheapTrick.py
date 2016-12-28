@@ -37,7 +37,7 @@ def EstimateOneSlice(x, fs, f0, temporal_position,\
     '''
     Calculate a smooth spectral envelope
     '''
-    if f0 < f0_low_limit: f0 = f0_low_limit #safe guard
+    if f0 < f0_low_limit: f0 = f0_low_limit  # safe guard
     waveform = CalculateWaveform(x, fs, f0, temporal_position)
     power_spectrum = CalculatePowerSpectrum(waveform, fs, fft_size, f0)
     smoothed_spectrum = LinearSmoothing(power_spectrum, f0, fs, fft_size)
@@ -64,8 +64,9 @@ def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
 def CalculateWaveform(x, fs, f0, temporal_position):
     #  prepare internal variables
     fragment_index = np.arange(int(Decimal(1.5 * fs / f0).quantize(0, ROUND_HALF_UP)) + 1)
-    number_of_fragments = len(fragment_index)
-    base_index = np.append(-fragment_index[number_of_fragments - 1 : 0 : -1], fragment_index)
+    #number_of_fragments = len(fragment_index)
+    #base_index = np.append(-fragment_index[number_of_fragments - 1 : 0 : -1], fragment_index)
+    base_index = np.append(-fragment_index[-1:0:-1], fragment_index)
     index = temporal_position * fs + 1 + base_index
     safe_index = np.minimum(len(x), \
                             np.maximum(1, np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in index])))
@@ -76,7 +77,7 @@ def CalculateWaveform(x, fs, f0, temporal_position):
         (temporal_position * fs - \
          int(Decimal(temporal_position * fs).quantize(0, ROUND_HALF_UP))) / fs    
     window = 0.5 * np.cos(m.pi * time_axis * f0) + 0.5
-    window = window / np.sqrt(np.sum(window ** 2))
+    window /= np.sqrt(np.sum(window ** 2))
     waveform = segment * window - window * np.mean(segment * window) / np.mean(window)
     return waveform
 ###################################################################################################################
