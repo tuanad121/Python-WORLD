@@ -1,6 +1,7 @@
 # built-in imports
 import math
 from decimal import Decimal, ROUND_HALF_UP
+import copy
 
 # 3rd-party imports
 from scipy.signal import resample, decimate
@@ -31,8 +32,7 @@ def Dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
     boundary_f0_list = f0_floor * boundary_f0_list
     
     #down sample to target Hz
-    y, actual_fs = CalculateDownsampledSignal(x, fs, target_fs)    
-
+    y, actual_fs = CalculateDownsampledSignal(x, fs, target_fs)
     y_spectrum = CalculateSpectrum(y, actual_fs, f0_floor)
     raw_f0_candidate, raw_stability = CalculateCandidateAndStabirity(np.size(temporal_positions), \
                                                                      boundary_f0_list, np.size(y), \
@@ -55,16 +55,14 @@ def Dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
 def CalculateDownsampledSignal(x, fs, target_fs):
     decimation_ratio = int(Decimal(fs / target_fs).quantize(0, ROUND_HALF_UP))
     if fs < target_fs:
-        y = x
-        y = y - np.mean(y)
+        y = copy.deepcopy(x)
         actual_fs = fs
-        return y, actual_fs
     else: 
-        y = decimate(x, decimation_ratio, ftype='iir', n = 3, zero_phase=True)
-        y = y - np.mean(y)
+        # decimate can be troublesome
+        y = decimate(x, decimation_ratio, ftype='iir', n = 3, zero_phase=True)  
         actual_fs = fs/decimation_ratio
-        
-        return y, actual_fs
+    y = y - np.mean(y)
+    return y, actual_fs
   
 ##########################################################################################################   
 
@@ -96,10 +94,10 @@ def CalculateCandidateAndStabirity(number_of_frames, \
         interpolated_f0, f0_deviations = CalculateRawEvent(boundary_f0_list[i], \
                                                            actual_fs, y_spectrum, \
                                                            y_length, temporal_positions, \
-                                                           f0_floor, \
-                                                           f0_ceil)
+                                                           f0_floor, f0_ceil)
         
         raw_f0_stability[i, :] = np.exp(-(f0_deviations / np.maximum(interpolated_f0, 0.0000001)))
+
         raw_f0_candidate[i, :] = interpolated_f0
     return raw_f0_candidate, raw_f0_stability
 
@@ -114,8 +112,6 @@ def SortCandidates(f0_candidate_map, stability_map):
     for i in range(number_of_frames):
         f0_candidates[:, i] = f0_candidate_map[sorted_index[:number_of_candidates,i], i]
         f0_candidates_score[:,i] = stability_map[sorted_index[:number_of_candidates,i], i]
-    #print('type of f0_candidates {}'.format(type(f0_candidates)))
-    #print('type of f0_candidates_score {}'.format(type(f0_candidates_score)))
     return f0_candidates, f0_candidates_score 
 
 ########################################################################################################## 
@@ -125,10 +121,11 @@ def CalculateRawEvent(boundary_f0, fs, y_spectrum, y_length, temporal_positions,
     low_pass_filter = nuttall(half_filter_length * 4)
     index_bias = low_pass_filter.argmax()
     spectrum_low_pass_filter = np.fft.fft(low_pass_filter, len(y_spectrum))
-    
+    # TODO: something wrong with ifft
     filtered_signal = np.real(np.fft.ifft(spectrum_low_pass_filter * y_spectrum))
-    
-    filtered_signal = filtered_signal[index_bias + np.arange(y_length)] 
+    #from scipy import fftpack
+    #filtered_signal = np.real(fftpack.ifft(spectrum_low_pass_filter * y_spectrum))
+    filtered_signal = filtered_signal[index_bias + np.arange(1, y_length + 1)] 
     
     # calculate 4 kinds of event
     negative_zero_cross = ZeroCrossingEngine(filtered_signal, fs)
@@ -137,6 +134,7 @@ def CalculateRawEvent(boundary_f0, fs, y_spectrum, y_length, temporal_positions,
     dip = ZeroCrossingEngine(-np.diff(filtered_signal), fs)
     
     f0_candidate, f0_deviations = GetF0Candidates(negative_zero_cross, positive_zero_cross, peak, dip, temporal_positions)
+    
     # remove untrustful candidates
     f0_candidate[f0_candidate > boundary_f0] = 0;
     f0_candidate[f0_candidate < (boundary_f0 / 2)] = 0;
@@ -164,6 +162,7 @@ def GetF0Candidates(negative_zero_cross, positive_zero_cross, peak, dip, tempora
         interpolated_f0_list[1,:] = interp1d(positive_zero_cross['interval_locations'], \
                                              positive_zero_cross['interval_based_f0'], \
                                              fill_value='extrapolate')(temporal_positions)
+        
         interpolated_f0_list[2,:] = interp1d(peak['interval_locations'], \
                                              peak['interval_based_f0'], \
                                              fill_value='extrapolate')(temporal_positions)
@@ -174,21 +173,20 @@ def GetF0Candidates(negative_zero_cross, positive_zero_cross, peak, dip, tempora
         f0_deviations = np.std(interpolated_f0_list, axis=0, ddof=1)
     else:
         interpolated_f0 = temporal_positions * 0;
-        f0_deviations = temporal_positions * 0 + 1000;        
+        f0_deviations = temporal_positions * 0 + 1000; 
     return interpolated_f0, f0_deviations
 
 ##########################################################################################################
 #negative zero crossing: going from positive to negative
 def ZeroCrossingEngine(x, fs):
-    #y=x.tolist()
-    negative_going_points = []
+    #y=x.tolist() 
+
+    negative_going_points = np.arange(1, len(x) + 1) *\
+        ((np.append(x[1:], x[-1]) * x < 0) * (np.append(x[1:], x[-1]) < x))
     
-    for i in range(np.size(x) - 1):
-        if x[i]*x[i+1] < 0 and x[i] > x[i+1]:
-            negative_going_points.append(i)
-    edge_list = np.array(negative_going_points)
+    edge_list = negative_going_points[negative_going_points > 0]
     
-    fine_edge_list = (edge_list) - x[edge_list] / (x[edge_list + 1] - x[edge_list]);
+    fine_edge_list = (edge_list) - x[edge_list - 1] / (x[edge_list] - x[edge_list - 1]);
     
     interval_locations = (fine_edge_list[:np.size(fine_edge_list) - 1] + fine_edge_list[1:]) / 2 / fs
     interval_based_f0 = fs / np.diff(fine_edge_list)
@@ -234,9 +232,9 @@ def FixStep1(f0_candidates, voice_range_minimum, allowed_range):
     f0_base[-voice_range_minimum : ] = 0
     
     f0_step1 = np.copy(f0_base)
-    
+    rounding_f0_base = np.array([float("{0:.6f}".format(elm)) for elm in f0_base])
     for i in np.arange(voice_range_minimum - 1, len(f0_base)):
-        if abs((f0_base[i] - f0_base[i-1]) / (0.000001 + f0_base[i])) > allowed_range:
+        if abs((rounding_f0_base[i] - rounding_f0_base[i-1]) / (0.000001 + rounding_f0_base[i])) > allowed_range:
             f0_step1[i] = 0
     return f0_step1
 
