@@ -25,15 +25,13 @@ def CheapTrick(x, fs, source_object, q1=-0.09):
     
     spectrogram = np.zeros([fft_size // 2 + 1, len(f0_sequence)])
     for i in range(len(f0_sequence)):
-        spectrogram[:,i] = EstimateOneSlice(x, fs, f0_sequence[i],\
-                                            temporal_positions[i], fft_size, f0_low_limit, q1)
+        spectrogram[:,i] = EstimateOneSlice(x, fs, f0_sequence[i], temporal_positions[i], fft_size, f0_low_limit, q1)
     return {'temporal_positions': temporal_positions,
             'spectrogram': spectrogram,
             'fs': fs
             }
 ################################################################################################################
-def EstimateOneSlice(x, fs, f0, temporal_position,\
-    fft_size, f0_low_limit, q1):
+def EstimateOneSlice(x, fs, f0, temporal_position, fft_size, f0_low_limit, q1):
     '''
     Calculate a smooth spectral envelope
     '''
@@ -41,7 +39,7 @@ def EstimateOneSlice(x, fs, f0, temporal_position,\
     waveform = CalculateWaveform(x, fs, f0, temporal_position)
     power_spectrum = CalculatePowerSpectrum(waveform, fs, fft_size, f0)
     smoothed_spectrum = LinearSmoothing(power_spectrum, f0, fs, fft_size)
-    spectral_envelope = SmoothingWithRecovery(np.append(smoothed_spectrum, smoothed_spectrum[-2 : 0 : -1]), f0, fs,\
+    spectral_envelope = SmoothingWithRecovery(np.append(smoothed_spectrum, smoothed_spectrum[-2 : 0 : -1]), f0, fs,
         fft_size, q1)
     return spectral_envelope
 #################################################################################################################
@@ -49,8 +47,8 @@ def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
     power_spectrum = np.abs(np.fft.fft(waveform, fft_size)) ** 2
     frequency_axis = np.arange(fft_size) / fft_size * fs
     low_frequency_axis = frequency_axis[frequency_axis < 1.2 * f0]
-    low_frequency_replica = interp1d(f0 - low_frequency_axis,\
-                                    power_spectrum[frequency_axis < 1.2 * f0],\
+    low_frequency_replica = interp1d(f0 - low_frequency_axis,
+                                    power_spectrum[frequency_axis < 1.2 * f0],
                                     fill_value='extrapolate')(low_frequency_axis)
     power_spectrum[frequency_axis < f0] =\
         low_frequency_replica[frequency_axis[:len(low_frequency_replica)] < f0] +\
@@ -68,14 +66,13 @@ def CalculateWaveform(x, fs, f0, temporal_position):
     #base_index = np.append(-fragment_index[number_of_fragments - 1 : 0 : -1], fragment_index)
     base_index = np.append(-fragment_index[-1:0:-1], fragment_index)
     index = temporal_position * fs + 1 + base_index
-    safe_index = np.minimum(len(x), \
+    safe_index = np.minimum(len(x),
                             np.maximum(1, np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in index])))
     
     #  wave segments and set of windows preparation
     segment = x[safe_index - 1]
     time_axis = base_index / fs / 1.5 +\
-        (temporal_position * fs - \
-         int(Decimal(temporal_position * fs).quantize(0, ROUND_HALF_UP))) / fs    
+        (temporal_position * fs - int(Decimal(temporal_position * fs).quantize(0, ROUND_HALF_UP))) / fs
     window = 0.5 * np.cos(m.pi * time_axis * f0) + 0.5
     window /= np.sqrt(np.sum(window ** 2))
     waveform = segment * window - window * np.mean(segment * window) / np.mean(window)
@@ -86,12 +83,10 @@ def LinearSmoothing(power_spectrum, f0, fs, fft_size):
     double_spectrum = np.append(power_spectrum, power_spectrum)
     double_segment = np.cumsum(double_spectrum * (fs / fft_size))
     center_frequency = np.arange(int(Decimal(fft_size / 2).quantize(0, ROUND_HALF_UP)) + 1) / fft_size * fs
-    low_levels = interp1H(double_frequency_axis + fs / fft_size / 2,\
-                          double_segment, center_frequency - f0 / 3)
-    high_levels = interp1H(double_frequency_axis + fs / fft_size / 2,\
-                           double_segment, center_frequency + f0 / 3)
-    
-    smoothed_spectrum = (high_levels - low_levels) * 1.5 / f0;
+
+    low_levels = interp1H(double_frequency_axis + fs / fft_size / 2, double_segment, center_frequency - f0 / 3)
+    high_levels = interp1H(double_frequency_axis + fs / fft_size / 2, double_segment, center_frequency + f0 / 3)
+    smoothed_spectrum = (high_levels - low_levels) * 1.5 / f0
     return smoothed_spectrum
 ####################################################################################################################
 def interp1H(x, y, xi):
