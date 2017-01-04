@@ -1,6 +1,7 @@
 # 3rd-party imports
 import numpy as np
 from scipy.interpolate import interp1d
+from scipy.signal import lfilter
 
 #build-in imports
 from decimal import Decimal, ROUND_HALF_UP
@@ -42,8 +43,15 @@ def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=1):
     f0_candidates, f0_candidates_score = RemoveUnreliableCandidates(f0_candidates, f0_candidates_score)
 
     connected_f0, vuv = FixF0Contour(f0_candidates, f0_candidates_score)
+    smoothed_f0 = SmoothF0(connected_f0)
     print('haha')
-    #smoothed_f0 = SmoothF0(connected_f0)
+
+    temporal_positions = np.arange(0, len(x) / fs, frame_period / 1000)
+    return {
+        'temporal_positions': temporal_positions,
+        'f0': smoothed_f0[np.minimum(len(smoothed_f0) - 1, np.array([round_matlab(elm) for elm in temporal_positions * 1000]))],
+        'vuv': vuv[np.minimum(len(smoothed_f0) - 1, np.array([round_matlab(elm) for elm in temporal_positions * 1000]))]
+    }
 
 
 ############################################################################################
@@ -329,10 +337,9 @@ def FixStep3(f0_step2, f0_candidates, allowed_range, f0_candidates_score):
 
         mean_f0 = np.mean(tmp_f0_sequence[tmp_range[0] : tmp_range[1] + 1])
         if threshold2 / mean_f0 < tmp_range[1] - tmp_range[0]:
-            count = count + 1
+            count += 1
             multi_channel_f0[count, :] = tmp_f0_sequence
             range[count, :] = tmp_range
-            print(count)
     multi_channel_f0 = multi_channel_f0[0 : count + 1, :]
     range = range[0 : count + 1, :]
     if count > -1:
@@ -368,7 +375,11 @@ def ExtendF0(f0, origin, last_point, shift, f0_candidates, allowed_range):
     shifted_origin = origin
 
     count = 0
-    for i in np.arange(origin, last_point + 1, shift):
+    if shift == 1:
+        last_point += 1
+    elif shift == -1:
+        last_point -= 1
+    for i in np.arange(origin, last_point, shift):
         extended_f0[i + shift], _ = SelectBestF0(tmp_f0, f0_candidates[:, i + shift], allowed_range)
         if extended_f0[i + shift] != 0:
             tmp_f0 = extended_f0[i + shift]
@@ -470,6 +481,36 @@ def GetF0Candidates(negative_zero_cross, positive_zero_cross, peak, dip, tempora
     else:
         interpolated_f0 = temporal_positions * 0
     return interpolated_f0
+
+
+###################################################################################################
+def SmoothF0(f0):
+    b = np.array([0.0078202080334971724, 0.015640416066994345, 0.0078202080334971724])
+    a = np.array([1.0, -1.7347257688092754, 0.76600660094326412])
+
+    smoothed_f0 = np.append(np.append(np.zeros(300), f0), np.zeros(300))
+    boundary_list = GetBoundaryList(smoothed_f0)
+    multi_channel_f0 = GetMultiChannelF0(smoothed_f0, boundary_list)
+    for i in np.arange(1, len(boundary_list) / 2 + 1):
+        tmp_f0_contour = FilterF0(multi_channel_f0[i - 1, :], boundary_list[i * 2 - 2], boundary_list[i * 2 - 1], b, a)
+        smoothed_f0[boundary_list[i * 2 - 2] : boundary_list[i * 2 - 1] + 1] = \
+            tmp_f0_contour[boundary_list[i * 2 - 2] : boundary_list[i * 2 - 1] + 1]
+
+    smoothed_f0 = smoothed_f0[300 : len(smoothed_f0) - 300]
+    return smoothed_f0
+
+
+####################################################################################################
+def FilterF0(f0_contour, st, ed, b, a):
+    smoothed_f0 = copy.deepcopy(f0_contour)
+    smoothed_f0[0 : st] = smoothed_f0[st]
+    smoothed_f0[ed + 1: ] = smoothed_f0[ed]
+    aaa = lfilter(b, a, smoothed_f0, axis=0)
+    bbb = lfilter(b, a, aaa[-1 : : -1], axis=0)
+    smoothed_f0 = bbb[-1 : : -1]
+    smoothed_f0[0 : st] = 0
+    smoothed_f0[ed + 1: ] = 0
+    return smoothed_f0
 
 
 ####################################################################################################

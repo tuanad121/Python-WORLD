@@ -8,7 +8,7 @@ def call_matlab(filename):
 '''
 addpath('../matlab/world-0.2.0_7_matlab');
 [x, fs] = audioread('{}');
-if 1 % You can use Dio
+if 0 % You can use Dio
 f0_parameter = Dio(x, fs);
 % StoneMask is an option for improving the F0 estimation performance.
 % You can skip this processing.
