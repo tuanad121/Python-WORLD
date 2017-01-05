@@ -7,7 +7,7 @@ import copy
 from scipy.interpolate import interp1d
 
 # local imports
-from decimate import decimate
+from .decimate import decimate
 
 import numpy as np
 def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, frame_period=5, allowed_range=0.1):

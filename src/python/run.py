@@ -6,3 +6,4 @@ path = 'test/test-mwm.wav'
 fs, x_int16 = wavread(path)
 x = x_int16 / (2 ** 15 - 1)
 f0_data = havest(x, fs)
+print('haha')
