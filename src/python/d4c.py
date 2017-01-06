@@ -8,10 +8,20 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 
-def D4C(x, fs, f0_object):
-    f0_low_limit = 71
+def D4C(x, fs, f0_object, threshold=0.85):
+    '''
+    calculate aperiodicity
+    :param x: input signal
+    :param fs: sampling frequency
+    :param f0_object: F0 information object
+    :param threshold: used for D4C Love Train, set to 0 to use conventional D4C
+    :return:
+    '''
+    f0_low_limit = 47
     fft_size = int(2 ** np.ceil(np.log2(4 * fs / f0_low_limit + 1)))
-    fft_size_for_spectrum = int(2 ** np.ceil(np.log2(3 * fs / f0_low_limit + 1)))
+    # size of aperiodicity must be the same as that of spectrogram
+    f0_low_limit_for_spectrum = 71
+    fft_size_for_spectrum = int(2 ** np.ceil(np.log2(3 * fs / f0_low_limit_for_spectrum + 1)))
     upper_limit = 15000
     frequency_interval = 3000
     source_object = f0_object
@@ -30,20 +40,22 @@ def D4C(x, fs, f0_object):
     ap_debug = np.zeros([number_of_aperiodicity, len(f0_sequence)])
 
     frequency_axis = np.arange(fft_size_for_spectrum / 2 + 1) * fs / fft_size_for_spectrum
-    coarse_axis = np.arange(number_of_aperiodicity + 1) * frequency_interval
-    coarse_axis = np.append(coarse_axis, fs/2)
+    coarse_axis = np.append(np.arange(number_of_aperiodicity + 1) * frequency_interval, fs/2)
 
     for i in range(len(f0_sequence)):
-        if f0_sequence[i] == 0:
-            aperiodicity[:, i] = 0
+
+        if D4CLoveTrain(x, fs, f0_sequence[i], temporal_positions[i], threshold) == 0:
+            aperiodicity[:, i] = 1 - 0.000000000001
             continue
-        coarse_aperiodicity = EstimateOneSlice(x, fs, f0_sequence[i],
+
+        current_f0 = max(f0_low_limit, f0_sequence[i])
+        coarse_aperiodicity = EstimateOneSlice(x, fs, current_f0,
                                            frequency_interval, temporal_positions[i], fft_size,
                                            number_of_aperiodicity, window)
-        coarse_aperiodicity = np.maximum(0, coarse_aperiodicity - (f0_sequence[i] - 100) * 2 / 100)
-        ap_debug[:, i] = coarse_aperiodicity # for debug
+        coarse_aperiodicity = np.maximum(0, coarse_aperiodicity - (current_f0 - 100) * 2 / 100)
+        ap_debug[:, i] = -coarse_aperiodicity # for debug
         aperiodicity[:, i] = 10 ** ((interp1d(coarse_axis,
-                                              np.append(np.append(-60, -coarse_aperiodicity), 0),
+                                              np.append(np.append(-60, -coarse_aperiodicity), -0.000000000001),
                                               kind='linear')(frequency_axis)) / 20)
         
     source_object['aperiodicity'] = aperiodicity
@@ -53,40 +65,66 @@ def D4C(x, fs, f0_object):
 
 
 ###################################################################################
-def CalculateWaveform(x, fs, f0, temporal_position, half_length, window_type): # 1: hanning, 2: blackman
+def D4CLoveTrain(x, fs, current_f0, current_position, threshold):
+    vuv = 0
+    if current_f0 == 0:
+      return vuv
+
+    lowest_f0 = 40
+    current_f0 = max(current_f0, lowest_f0)
+    fft_size = int(2 ** np.ceil(np.log2(3 * fs / lowest_f0 + 1)))
+    # Cumulative powers at 100, 4000, 7900 Hz are used for VUV identification.
+    boundary0 = int(np.ceil(100 / (fs / fft_size)) + 1)
+    boundary1 = int(np.ceil(4000 / (fs / fft_size)) + 1)
+    boundary2 = int(np.ceil(7900 / (fs / fft_size)) + 1)
+
+    waveform = CalculateWaveform(x, fs, current_f0, current_position, 1.5, 2)
+    power_spectrum = np.abs(np.fft.fft(waveform, fft_size)) ** 2
+    power_spectrum[0 : boundary0] = 0.0
+    cumlative_spectrum = np.cumsum(power_spectrum)
+
+    if cumlative_spectrum[boundary1 - 1] / cumlative_spectrum[boundary2 - 1] > threshold:
+        vuv = 1
+    return vuv
+
+
+###################################################################################
+def CalculateWaveform(x, fs, current_f0, current_position, half_length, window_type): # 1: hanning, 2: blackman
     # prepare internal variables
-    fragment_index = np.arange(int(Decimal(half_length * fs / f0).quantize(0, ROUND_HALF_UP)) + 1)
-    number_of_fragments = len(fragment_index)
-    base_index = np.append(-fragment_index[number_of_fragments - 1 : 0 : -1], fragment_index)
-    index = temporal_position * fs + 1 + base_index
-    safe_index = np.minimum(len(x), np.maximum(1, [int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in index]))  
+    #fragment_index = np.arange(round_matlab(half_length * fs / current_f0) + 1)
+    #number_of_fragments = len(fragment_index)
+    #base_index = np.append(-fragment_index[number_of_fragments - 1 : 0 : -1], fragment_index)
+    half_window_length = round_matlab(half_length * fs / current_f0)
+    base_index = np.arange(-half_window_length, half_window_length + 1)
+    index = round_matlab(current_position * fs + 0.001) + 1.0 + base_index
+    safe_index = np.minimum(len(x), np.maximum(1, np.array([round_matlab(elm) for elm in index])))
 
     #  wave segments and set of windows preparation
     segment = x[safe_index - 1]
     time_axis = base_index / fs / half_length + \
-                (temporal_position * fs - int(Decimal(temporal_position * fs).quantize(0, ROUND_HALF_UP))) / fs
+                (current_position * fs - int(Decimal(current_position * fs).quantize(0, ROUND_HALF_UP))) / fs
         
     if window_type == 1: # hanning
-        window = 0.5 * np.cos(np.pi * time_axis * f0) + 0.5
+        window = 0.5 * np.cos(np.pi * time_axis * current_f0) + 0.5
     else: # blackman
-        window = 0.08 * np.cos(np.pi * time_axis * f0 * 2) +\
-                 0.5 * np.cos(np.pi * time_axis * f0) + 0.42
+        window = 0.08 * np.cos(np.pi * time_axis * current_f0 * 2) +\
+                 0.5 * np.cos(np.pi * time_axis * current_f0) + 0.42
     waveform = segment * window - window * np.mean(segment * window) / np.mean(window)
     return waveform
 
 
 ###################################################################################
-def EstimateOneSlice(x, fs, f0, frequency_interval, temporal_position, fft_size, number_of_aperiodicity, window):
-    if f0 == 0:
+def EstimateOneSlice(x, fs, current_f0, frequency_interval, current_position, fft_size, number_of_aperiodicity, window):
+    if current_f0 == 0:
         return np.zeros(number_of_aperiodicity)
 
     static_centroid =\
-        CalculateStaticCentroid(x, fs, f0, temporal_position, fft_size)
-    waveform = CalculateWaveform(x, fs, f0, temporal_position, 2, 1)
+        CalculateStaticCentroid(x, fs, current_f0, current_position, fft_size)
+    waveform = CalculateWaveform(x, fs, current_f0, current_position, 2, 1)
     smoothed_power_spectrum =\
-        CalculateSmoothedPowerSpectrum(waveform, fs, f0, fft_size)
+        CalculateSmoothedPowerSpectrum(waveform, fs, current_f0, fft_size)
     static_group_delay =\
-        CalculateStaticGroupDelay(static_centroid, smoothed_power_spectrum, fs, f0,fft_size)
+        CalculateStaticGroupDelay(static_centroid, smoothed_power_spectrum, fs, current_f0, fft_size)
     coarse_aperiodicity =\
         CalculateCoarseAperiodicity(static_group_delay, fs, fft_size,frequency_interval, number_of_aperiodicity, window)
     return coarse_aperiodicity
@@ -204,3 +242,14 @@ def nuttall(N):
     coefs = np.array([0.355768, -0.487396, 0.144232, -0.012604])
     window = coefs @ np.cos(np.matrix([0,1,2,3]).T @ t)
     return np.squeeze(np.asarray(window))
+
+
+#####################################################################################################
+def round_matlab(n):
+    '''
+    this function works as Matlab round() function
+    python round function choose the nearest even number to n, which is different from Matlab round function
+    :param n: input number
+    :return: rounded n
+    '''
+    return int(Decimal(n).quantize(0, ROUND_HALF_UP))
