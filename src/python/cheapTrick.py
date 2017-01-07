@@ -6,6 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 import numpy as np
 from scipy.interpolate import interp1d
 
+
 def CheapTrick(x, fs, source_object, q1=-0.15):
     '''
     Generate smooth spectrogram from signal x, eliminating the affect of fundamental frequency F0
@@ -19,12 +20,16 @@ def CheapTrick(x, fs, source_object, q1=-0.15):
     f0_low_limit = 71
     default_f0 = 500
     fft_size = 2 ** m.ceil(m.log(3 * fs / f0_low_limit + 1, 2))
+
+    f0_low_limit = fs * 3.0 / fft_size
     temporal_positions = source_object['temporal_positions']
     f0_sequence = source_object['f0']
     f0_sequence[source_object['vuv'] == 0] = default_f0
     
     spectrogram = np.zeros([fft_size // 2 + 1, len(f0_sequence)])
     for i in range(len(f0_sequence)):
+        if f0_sequence[i] < f0_low_limit:
+            f0_sequence[i] = default_f0
         spectrogram[:,i] = EstimateOneSlice(x, fs, f0_sequence[i], temporal_positions[i], fft_size, q1)
     return {'temporal_positions': temporal_positions,
             'spectrogram': spectrogram,
@@ -33,16 +38,16 @@ def CheapTrick(x, fs, source_object, q1=-0.15):
 
 
 ################################################################################################################
-def EstimateOneSlice(x, fs, f0, temporal_position, fft_size, q1):
+def EstimateOneSlice(x, fs, current_f0, current_position, fft_size, q1):
     '''
     Calculate a smooth spectral envelope
     '''
     #if f0 < f0_low_limit: f0 = f0_low_limit  # safe guard
-    waveform = CalculateWaveform(x, fs, f0, temporal_position)
-    power_spectrum = CalculatePowerSpectrum(waveform, fs, fft_size, f0)
-    smoothed_spectrum = LinearSmoothing(power_spectrum, f0, fs, fft_size)
-    spectral_envelope = SmoothingWithRecovery(np.append(smoothed_spectrum, smoothed_spectrum[-2 : 0 : -1]), f0, fs,
-        fft_size, q1)
+    waveform = CalculateWaveform(x, fs, current_f0, current_position)
+    power_spectrum = CalculatePowerSpectrum(waveform, fs, fft_size, current_f0)
+    smoothed_spectrum = LinearSmoothing(power_spectrum, current_f0, fs, fft_size)
+    spectral_envelope = SmoothingWithRecovery(np.append(smoothed_spectrum, smoothed_spectrum[-2 : 0 : -1]), current_f0, fs,
+                                              fft_size, q1)
     return spectral_envelope
 
 
@@ -54,22 +59,19 @@ def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
     low_frequency_replica = interp1d(f0 - low_frequency_axis, power_spectrum[frequency_axis < f0 + fs / fft_size],
                                      fill_value='extrapolate')(low_frequency_axis)
     power_spectrum[frequency_axis < f0] =\
-        low_frequency_replica[frequency_axis[:len(low_frequency_replica)] < f0] +\
-        power_spectrum[frequency_axis < f0]
+        low_frequency_replica[frequency_axis[:len(low_frequency_replica)] < f0] + power_spectrum[frequency_axis < f0]
     
-    power_spectrum[-1:round_matlab(fft_size / 2): -1] =\
-        power_spectrum[1: fft_size // 2]
+    power_spectrum[-1:fft_size // 2: -1] = power_spectrum[1: fft_size // 2]
     return power_spectrum
 
 
 ##################################################################################################################
 def CalculateWaveform(x, fs, f0, temporal_position):
     #  prepare internal variables
-    fragment_index = np.arange(round_matlab(1.5 * fs / f0) + 1)
-    base_index = np.append(-fragment_index[-1:0:-1], fragment_index)
+    half_window_length = round_matlab(1.5 * fs / f0)
+    base_index = np.arange(-half_window_length, half_window_length + 1)
     index = round_matlab(temporal_position * fs + 0.001) + 1.0 + base_index
-    safe_index = np.minimum(len(x),
-                            np.maximum(1, np.array([round_matlab(elm) for elm in index])))
+    safe_index = np.minimum(len(x), np.maximum(1, np.array([round_matlab(elm) for elm in index])))
     
     #  wave segments and set of windows preparation
     segment = x[safe_index - 1]
@@ -83,10 +85,10 @@ def CalculateWaveform(x, fs, f0, temporal_position):
 ###################################################################################################################
 def LinearSmoothing(power_spectrum, f0, fs, fft_size):
     double_frequency_axis = np.arange(2 * fft_size) / fft_size * fs - fs
-    double_spectrum = np.append(power_spectrum, power_spectrum)
+    double_spectrum = np.r_[power_spectrum, power_spectrum]
 
     double_segment = np.cumsum(double_spectrum * (fs / fft_size))
-    center_frequency = np.arange(round_matlab(fft_size / 2) + 1) / fft_size * fs
+    center_frequency = np.arange(fft_size // 2 + 1) / fft_size * fs
     low_levels = interp1H(double_frequency_axis + fs / fft_size / 2, double_segment, center_frequency - f0 / 3)
     high_levels = interp1H(double_frequency_axis + fs / fft_size / 2, double_segment, center_frequency + f0 / 3)
     smoothed_spectrum = (high_levels - low_levels) * 1.5 / f0
@@ -114,11 +116,11 @@ def SmoothingWithRecovery(smoothed_spectrum, f0, fs, fft_size, q1):
     compensation_lifter =\
         (1 - 2 * q1) + 2 * q1 * np.cos(2 * m.pi * quefrency_axis * f0)
     compensation_lifter[fft_size // 2 + 1 : ] =\
-        compensation_lifter[round_matlab(fft_size / 2) - 1: 0 : -1]
+        compensation_lifter[fft_size // 2 - 1: 0 : -1]
     tandem_cepstrum = np.fft.fft(np.log(smoothed_spectrum))
     tmp_spectral_envelope =\
         np.exp(np.real(np.fft.ifft(tandem_cepstrum * smoothing_lifter * compensation_lifter)))
-    spectral_envelope = tmp_spectral_envelope[: round_matlab(fft_size / 2) + 1]
+    spectral_envelope = tmp_spectral_envelope[: fft_size // 2 + 1]
     return spectral_envelope
 
 

@@ -12,7 +12,7 @@ import math
 from decimate import decimate # the script comes from scipy.signal with a little change
 
 
-def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=1):
+def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
     basic_frame_period = 1
     target_fs = 8000
     basic_temporal_positions = np.arange(0, len(x) / fs, basic_frame_period / 1000 )
@@ -44,9 +44,8 @@ def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=1):
 
     connected_f0, vuv = FixF0Contour(f0_candidates, f0_candidates_score)
     smoothed_f0 = SmoothF0(connected_f0)
-    print('haha')
-
     temporal_positions = np.arange(0, len(x) / fs, frame_period / 1000)
+    print('haha')
     return {
         'temporal_positions': temporal_positions,
         'f0': smoothed_f0[np.minimum(len(smoothed_f0) - 1, np.array([round_matlab(elm) for elm in temporal_positions * 1000]))],
