@@ -40,12 +40,14 @@ def CheapTrick(x, fs, source_object, q1=-0.15):
 ################################################################################################################
 def EstimateOneSlice(x, fs, current_f0, current_position, fft_size, q1):
     '''
-    Calculate a smooth spectral envelope
+    Calculate spectrum using CheapTrick algorithm consisting 3 steps
     '''
-    #if f0 < f0_low_limit: f0 = f0_low_limit  # safe guard
+    # First step: F0-adaptive windowing
     waveform = CalculateWaveform(x, fs, current_f0, current_position)
     power_spectrum = CalculatePowerSpectrum(waveform, fs, fft_size, current_f0)
+    # Second step: Frequency domain smoothing
     smoothed_spectrum = LinearSmoothing(power_spectrum, current_f0, fs, fft_size)
+    # Third step: Liftering in quefrency domain
     spectral_envelope = SmoothingWithRecovery(np.append(smoothed_spectrum, smoothed_spectrum[-2 : 0 : -1]), current_f0, fs,
                                               fft_size, q1)
     return spectral_envelope
@@ -67,7 +69,12 @@ def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
 
 ##################################################################################################################
 def CalculateWaveform(x, fs, f0, temporal_position):
-    #  prepare internal variables
+    '''
+    First step: F0-adaptive windowing
+    Design a window function with basic idea of pitch-synchronous analysis.
+    A Hanning window with length 3*T0 is used.
+    Using the window makes over all power of the periodic signal temporally stable 
+    '''
     half_window_length = round_matlab(1.5 * fs / f0)
     base_index = np.arange(-half_window_length, half_window_length + 1)
     index = round_matlab(temporal_position * fs + 0.001) + 1.0 + base_index
@@ -84,6 +91,11 @@ def CalculateWaveform(x, fs, f0, temporal_position):
 
 ###################################################################################################################
 def LinearSmoothing(power_spectrum, f0, fs, fft_size):
+    '''
+        Second step: Frequency domain smoothing of power spectrum
+        This step is carried out to ensure that the power spectrum has no zeros.
+        It avoids log(0) in next step
+    '''    
     double_frequency_axis = np.arange(2 * fft_size) / fft_size * fs - fs
     double_spectrum = np.r_[power_spectrum, power_spectrum]
 
@@ -108,6 +120,10 @@ def interp1H(x, y, xi):
 
 ####################################################################################################################
 def SmoothingWithRecovery(smoothed_spectrum, f0, fs, fft_size, q1):
+    '''
+        Third step: Liftering in quefrency domain
+        Remove frequency fluctuation caused by dicretization
+        '''    
     quefrency_axis = np.arange(fft_size) / fs
     smoothing_lifter = np.r_[1, np.sin(m.pi * f0 * quefrency_axis[1:]) / (m.pi * f0 * quefrency_axis[1:])]
     smoothing_lifter[fft_size // 2 + 1:] =\

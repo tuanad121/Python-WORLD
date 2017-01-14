@@ -12,7 +12,10 @@ from . import decimate
 import numpy as np
 def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, frame_period=5, allowed_range=0.1):
     '''
-    F0 estimation by DIO
+    F0 estimation by DIO consisting 3 steps
+    + Low-pass filtering
+    + Calculate F0 candidates and their reliabilities from filtered signal
+    + Select highest reliable candidates
     f0_parameter = Dio(x, fs, f0_ceil, channels_in_octave, target_fs, frame_period, allowed_range);
     
     Inputs
@@ -51,8 +54,8 @@ def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
             'vuv':vuv
             }
 
-##########################################################################################################
 
+##########################################################################################################
 def CalculateDownsampledSignal(x, fs, target_fs):
     decimation_ratio = int(Decimal(fs / target_fs).quantize(0, ROUND_HALF_UP))
     if fs < target_fs:
@@ -68,6 +71,9 @@ def CalculateDownsampledSignal(x, fs, target_fs):
 
 ##########################################################################################################
 def CalculateSpectrum(x, fs, lowest_f0):
+    '''
+        First step: Low-pass filtering with different cut-off frequencies
+    '''    
     fft_size = 2 ** math.ceil(math.log(np.size(x) + \
                                         int(Decimal(fs / lowest_f0 / 2).quantize(0, ROUND_HALF_UP)) * 4,2)) 
     #low-cut filtering
@@ -83,12 +89,12 @@ def CalculateSpectrum(x, fs, lowest_f0):
 
 
 ##########################################################################################################
-def CalculateCandidateAndStabirity(number_of_frames,
-                                   boundary_f0_list,y_length,
-                                   temporal_positions,
-                                   actual_fs, y_spectrum,
-                                   f0_floor,
-                                   f0_ceil):
+def CalculateCandidateAndStabirity(number_of_frames, boundary_f0_list, y_length, temporal_positions,
+                                   actual_fs, y_spectrum, f0_floor, f0_ceil):
+    '''
+        Second step: Caculate F0 candidates and F0 stability
+    
+        '''    
     raw_f0_candidate = np.zeros((np.size(boundary_f0_list), number_of_frames))
     raw_f0_stability = np.zeros((np.size(boundary_f0_list), number_of_frames))
     for i in range(np.size(boundary_f0_list)):
@@ -105,7 +111,9 @@ def CalculateCandidateAndStabirity(number_of_frames,
 
 ##########################################################################################################
 def SortCandidates(f0_candidate_map, stability_map):
-    #not test yet ***********
+    '''
+    Third step: Select the most reliable F0 candidates
+    '''
     number_of_candidates, number_of_frames = f0_candidate_map.shape
     sorted_index = np.argsort(-stability_map, axis=0, kind='quicksort')
     f0_candidates = np.zeros((number_of_candidates, number_of_frames))
