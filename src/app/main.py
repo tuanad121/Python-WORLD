@@ -11,12 +11,12 @@ from scipy.io.wavfile import write
 # local imports
 #for now, let's stay pysig independent, since we may want to distribute our code freely later
 #sys.path.append('/Users/tuandinh/bakup/pysig/src/python')
+#from pysig import track
 sys.path.append('../python')
 
 
 import pyximport; pyximport.install()
 
-#from pysig import track
 from dio import Dio
 from dio import ZeroCrossingEngine # yours
 from dio import GetF0Candidates

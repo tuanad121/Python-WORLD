@@ -1,15 +1,15 @@
-# 3rd-party imports
-import numpy as np
-from scipy.interpolate import interp1d
-from scipy.signal import lfilter
-
 #build-in imports
 from decimal import Decimal, ROUND_HALF_UP
 import copy
 import math
 
+# 3rd-party imports
+import numpy as np
+from scipy.interpolate import interp1d
+from scipy.signal import lfilter
+
 # local imports
-from decimate import decimate # the script comes from scipy.signal with a little change
+from . import decimate # the script comes from scipy.signal with a little change  - TODO: what would need to be done to use it unmodified?
 
 
 def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
@@ -63,10 +63,10 @@ def CalculateDownsampledSignal(x, fs, target_fs):
         y = copy.deepcopy(x)
         actual_fs = fs
     else:
-        # decimate can be troublesome
-        y0 = decimate(x, decimation_ratio, ftype='iir', n = 3, zero_phase=True)
+        # TODO: decimate can be troublesome
+        y0 = decimate.decimate(x, decimation_ratio, ftype='iir', n = 3, zero_phase=True)
         actual_fs = fs / decimation_ratio
-        y = y0[offset / decimation_ratio : -offset / decimation_ratio]
+        y = y0[int(offset / decimation_ratio) : int(-offset / decimation_ratio)]
     y -= np.mean(y)
     return y, actual_fs
 
@@ -309,7 +309,7 @@ def FixStep2(f0_step1, voice_range_minimum):
     boundary_list = GetBoundaryList(f0_step1)
 
     for i in np.arange(1, len(boundary_list) / 2 + 1):
-        distance = boundary_list[2 * i -1] - boundary_list[(2 * i) - 2]
+        distance = boundary_list[2 * i - 1] - boundary_list[(2 * i) - 2]
         if distance < voice_range_minimum:
             f0_step2[boundary_list[(2 * i) - 2] : boundary_list[2 * i - 1] + 1] = 0
     return f0_step2

@@ -31,6 +31,7 @@ def D4C(x, fs, f0_object, threshold=0.85):
     f0_sequence[f0_object['vuv'] == 0] = 0
 
     number_of_aperiodicity = int(np.floor(np.min([upper_limit, fs / 2 - frequency_interval]) / frequency_interval))
+    assert number_of_aperiodicity > 0
 
     # The window function used for the CalculateFeature() is designed here to speed up
     window_length = np.floor(frequency_interval / (fs / fft_size)) * 2 + 1

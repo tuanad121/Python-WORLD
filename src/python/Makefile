@@ -1,6 +1,6 @@
-all: all.so
+all: dummy
 
-all.so:
+dummy:
 	python setup.py build_ext --inplace
 	rm -rf build
 
