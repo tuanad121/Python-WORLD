@@ -7,7 +7,7 @@ import copy
 from scipy.interpolate import interp1d
 
 # local imports
-from decimate import decimate
+from . import decimate
 
 import numpy as np
 def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, frame_period=5, allowed_range=0.1):
@@ -60,7 +60,7 @@ def CalculateDownsampledSignal(x, fs, target_fs):
         actual_fs = fs
     else: 
         # decimate can be troublesome
-        y = decimate(x, decimation_ratio, ftype='iir', n = 3, zero_phase=True)  
+        y = decimate.decimate(x, decimation_ratio, ftype='iir', n = 3, zero_phase=True)
         actual_fs = fs / decimation_ratio
     y -= np.mean(y)
     return y, actual_fs
