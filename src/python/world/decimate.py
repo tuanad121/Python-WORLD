@@ -100,6 +100,6 @@ def decimate(x, q, n=None, ftype='iir', axis=-1, zero_phase=None):
         # make it the same as matlab
         nd = len(y)
         n_out = np.ceil(nd / q)
-        n_beg = q - (q * n_out - nd)
+        n_beg = int(q - (q * n_out - nd))
         # sl[axis] = slice(None, None, q)
     return y[n_beg - 1::q]
