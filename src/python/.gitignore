@@ -1,1 +1,2 @@
-pyworld*.so
+*.so
+*.c
