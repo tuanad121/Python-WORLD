@@ -2,12 +2,14 @@ function y = Synthesis(source_object, filter_object)
 % Waveform synthesis from the estimated parameters
 % y = Synthesis(source_object, filter_object)
 %
-% Inputs
+% Input
 %   source_object : F0 and aperiodicity
 %   filter_object : spectral envelope
+%
 % Output
 %   y : synthesized waveform
 %
+% 2016/12/28: Refactoring
 
 vuv = source_object.vuv;
 spectrogram = filter_object.spectrogram;
@@ -16,11 +18,11 @@ f0 = source_object.f0;
 fs = filter_object.fs;
 temporal_positions = source_object.temporal_positions;
 
-signal_time = temporal_positions(1) : 1 / fs : temporal_positions(end);
-y = 0 * signal_time';
+time_axis = temporal_positions(1) : 1 / fs : temporal_positions(end);
+y = 0 * time_axis';
 
 [pulse_locations, pulse_locations_index, interpolated_vuv] = ...
-  TimeBaseGeneration(temporal_positions, f0, fs, vuv, signal_time, default_f0);
+  TimeBaseGeneration(temporal_positions, f0, fs, vuv, time_axis, default_f0);
 
 fft_size = (size(spectrogram, 1) - 1) * 2;
 base_index = -fft_size / 2 + 1 : fft_size / 2;
@@ -80,19 +82,19 @@ end;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [pulse_locations, pulse_locations_index, vuv_interpolated] = ...
-  TimeBaseGeneration(temporal_positions, f0, fs, vuv, signal_time, default_f0)
+  TimeBaseGeneration(temporal_positions, f0, fs, vuv, time_axis, default_f0)
 
 f0_interpolated_raw = ...
-  interp1(temporal_positions, f0, signal_time, 'linear', 'extrap');
+  interp1(temporal_positions, f0, time_axis, 'linear', 'extrap');
 vuv_interpolated = ...
-  interp1(temporal_positions, vuv, signal_time, 'linear', 'extrap');
+  interp1(temporal_positions, vuv, time_axis, 'linear', 'extrap');
 vuv_interpolated = vuv_interpolated > 0.5;
 f0_interpolated = f0_interpolated_raw .* vuv_interpolated;
 f0_interpolated(f0_interpolated == 0) = ...
   f0_interpolated(f0_interpolated == 0) + default_f0;
 
 total_phase = cumsum(2 * pi * f0_interpolated / fs);
-pulse_locations = signal_time(abs(diff(rem(total_phase, 2 * pi))) > pi / 2);
+pulse_locations = time_axis(abs(diff(rem(total_phase, 2 * pi))) > pi / 2);
 pulse_locations_index = round(pulse_locations * fs) + 1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
