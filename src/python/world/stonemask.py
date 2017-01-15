@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 import numpy as np
 #import oct2py
 
-def StoneMask(x, fs, temporal_positions, f0):
+def stonemask(x, fs, temporal_positions, f0):
     '''
     Refine F0 by instantaneous frequency
     refined_f0 = StoneMask(x, fs, temporal_positions, f0)
@@ -22,12 +22,13 @@ def StoneMask(x, fs, temporal_positions, f0):
     refined_f0 = np.copy(f0);
     for i in range(len(temporal_positions)):
         if f0[i] != 0:
-            refined_f0[i] = GetRefinedF0(x, fs, temporal_positions[i], f0[i])
+            refined_f0[i] = get_refined_f0(x, fs, temporal_positions[i], f0[i])
             if abs(refined_f0[i] - f0[i]) / f0[i] > 0.2:
                 refined_f0[i] = f0[i]
     return refined_f0
 
-def GetRefinedF0(x, fs, current_time, f0_initial):
+
+def get_refined_f0(x, fs, current_time, f0_initial):
     half_window_length = np.ceil(3 * fs / f0_initial / 2)
     window_length_in_time = (2 * half_window_length + 1) / fs
     base_time = np.arange(-half_window_length, half_window_length + 1) / fs

@@ -2,8 +2,8 @@ from dio import dio
 from havest import havest
 from stoneMask import StoneMask
 from cheapTrick import CheapTrick
-from d4c import  D4C
-from synthesis import Synthesis
+from d4c import  d4c
+from synthesis import synthesis
 from scipy.io.wavfile import read as wavread, write as wavwrite
 import numpy as np
 def process():
@@ -13,8 +13,8 @@ def process():
 
     f0_data = havest(x, fs)
     filter_obj = CheapTrick(x, fs, f0_data)
-    source_obj = D4C(x,fs,f0_data)
-    y = Synthesis(source_obj, filter_obj)
+    source_obj = d4c(x, fs, f0_data)
+    y = synthesis(source_obj, filter_obj)
     if 0:
         import simpleaudio as sa
         import numpy as np

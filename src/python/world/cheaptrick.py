@@ -7,7 +7,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 
-def CheapTrick(x, fs, source_object, q1=-0.15):
+def cheaptrick(x, fs, source_object, q1=-0.15):
     '''
     Generate smooth spectrogram from signal x, eliminating the affect of fundamental frequency F0
     Input:
@@ -30,7 +30,7 @@ def CheapTrick(x, fs, source_object, q1=-0.15):
     for i in range(len(f0_sequence)):
         if f0_sequence[i] < f0_low_limit:
             f0_sequence[i] = default_f0
-        spectrogram[:,i] = EstimateOneSlice(x, fs, f0_sequence[i], temporal_positions[i], fft_size, q1)
+        spectrogram[:,i] = estimate_one_slice(x, fs, f0_sequence[i], temporal_positions[i], fft_size, q1)
     return {'temporal_positions': temporal_positions,
             'spectrogram': spectrogram,
             'fs': fs
@@ -38,23 +38,23 @@ def CheapTrick(x, fs, source_object, q1=-0.15):
 
 
 ################################################################################################################
-def EstimateOneSlice(x, fs, current_f0, current_position, fft_size, q1):
+def estimate_one_slice(x, fs, current_f0, current_position, fft_size, q1):
     '''
     Calculate spectrum using CheapTrick algorithm consisting 3 steps
     '''
     # First step: F0-adaptive windowing
-    waveform = CalculateWaveform(x, fs, current_f0, current_position)
-    power_spectrum = CalculatePowerSpectrum(waveform, fs, fft_size, current_f0)
+    waveform = calculate_windowed_waveform(x, fs, current_f0, current_position)
+    power_spectrum = get_power_spectrum(waveform, fs, fft_size, current_f0)
     # Second step: Frequency domain smoothing
-    smoothed_spectrum = LinearSmoothing(power_spectrum, current_f0, fs, fft_size)
+    smoothed_spectrum = linear_smoothing(power_spectrum, current_f0, fs, fft_size)
     # Third step: Liftering in quefrency domain
-    spectral_envelope = SmoothingWithRecovery(np.append(smoothed_spectrum, smoothed_spectrum[-2 : 0 : -1]), current_f0, fs,
-                                              fft_size, q1)
+    spectral_envelope = smoothing_with_recovery(np.append(smoothed_spectrum, smoothed_spectrum[-2 : 0 : -1]), current_f0, fs,
+                                                fft_size, q1)
     return spectral_envelope
 
 
 #################################################################################################################
-def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
+def get_power_spectrum(waveform, fs, fft_size, f0):
     power_spectrum = np.abs(np.fft.fft(waveform, fft_size)) ** 2
     frequency_axis = np.arange(fft_size) / fft_size * fs
     low_frequency_axis = frequency_axis[frequency_axis < f0 + fs / fft_size]
@@ -68,7 +68,7 @@ def CalculatePowerSpectrum(waveform, fs, fft_size, f0):
 
 
 ##################################################################################################################
-def CalculateWaveform(x, fs, f0, temporal_position):
+def calculate_windowed_waveform(x, fs, f0, temporal_position):
     '''
     First step: F0-adaptive windowing
     Design a window function with basic idea of pitch-synchronous analysis.
@@ -90,7 +90,7 @@ def CalculateWaveform(x, fs, f0, temporal_position):
 
 
 ###################################################################################################################
-def LinearSmoothing(power_spectrum, f0, fs, fft_size):
+def linear_smoothing(power_spectrum, f0, fs, fft_size):
     '''
         Second step: Frequency domain smoothing of power spectrum
         This step is carried out to ensure that the power spectrum has no zeros.
@@ -119,16 +119,17 @@ def interp1H(x, y, xi):
 
 
 ####################################################################################################################
-def SmoothingWithRecovery(smoothed_spectrum, f0, fs, fft_size, q1):
+def smoothing_with_recovery(smoothed_spectrum, f0, fs, fft_size, q1):
     '''
         Third step: Liftering in quefrency domain
         Remove frequency fluctuation caused by dicretization
         '''    
     quefrency_axis = np.arange(fft_size) / fs
+    # smoothing liftering function: l_s(T)
     smoothing_lifter = np.r_[1, np.sin(m.pi * f0 * quefrency_axis[1:]) / (m.pi * f0 * quefrency_axis[1:])]
     smoothing_lifter[fft_size // 2 + 1:] =\
         smoothing_lifter[round_matlab(fft_size / 2) - 1 : 0 : -1]
-
+    # liftering function for spectral recovery: l_q(T)
     compensation_lifter =\
         (1 - 2 * q1) + 2 * q1 * np.cos(2 * m.pi * quefrency_axis * f0)
     compensation_lifter[fft_size // 2 + 1 : ] =\

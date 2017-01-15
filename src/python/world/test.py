@@ -19,8 +19,8 @@ import unittest
 #from pysig import track
 from havest import havest
 from cheapTrick import CheapTrick
-from d4c import D4C
-from synthesis import Synthesis
+from d4c import d4c
+from synthesis import synthesis
 import pyworld as pw # official
 from call_matlab import call_matlab
 

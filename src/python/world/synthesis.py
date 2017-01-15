@@ -18,7 +18,7 @@ import cython
 
 @cython.locals(i=cython.int)
 #@numba.jit()
-def Synthesis(source_object, filter_object):
+def synthesis(source_object, filter_object):
     '''
     Waveform synthesis from the estimated parameters
     y = Synthesis(source_object, filter_object)
@@ -41,7 +41,7 @@ def Synthesis(source_object, filter_object):
     y = np.zeros(len(time_axis))
     
     pulse_locations, pulse_locations_index, interpolated_vuv = \
-        TimeBaseGeneration(temporal_positions, f0, fs, vuv, time_axis, default_f0)
+        time_base_generation(temporal_positions, f0, fs, vuv, time_axis, default_f0)
     
     fft_size = (spectrogram.shape[0] - 1) * 2
     base_index = np.arange(-fft_size // 2 + 1, fft_size // 2 + 1)
@@ -59,8 +59,8 @@ def Synthesis(source_object, filter_object):
     for i in range(len(pulse_locations_index)):
         
         spectrum_slice, periodic_slice, aperiodic_slice = \
-            GetSpectralParameters(temporal_positions, temporal_position_index[i],\
-                                  spectrogram, amplitude_periodic, amplitude_aperiodic, pulse_locations[i])
+            get_spectral_parameters(temporal_positions, temporal_position_index[i], \
+                                    spectrogram, amplitude_periodic, amplitude_aperiodic, pulse_locations[i])
     
         noise_size = pulse_locations_index[min(len(pulse_locations_index) - 1, i + 1)] - pulse_locations_index[i]
         output_buffer_index = np.maximum(1, np.minimum(y_length, pulse_locations_index[i] + base_index))
@@ -101,7 +101,7 @@ def Synthesis(source_object, filter_object):
 
 #####################################################
 
-def TimeBaseGeneration(temporal_positions, f0, fs, vuv, signal_time, default_f0):
+def time_base_generation(temporal_positions, f0, fs, vuv, signal_time, default_f0):
     from math import pi
     f0_interpolated_raw = interp1d(temporal_positions, f0, kind='linear', fill_value='extrapolate')(signal_time)
     vuv_interpolated = interp1d(temporal_positions, vuv, kind='linear', fill_value='extrapolate')(signal_time)
@@ -117,8 +117,8 @@ def TimeBaseGeneration(temporal_positions, f0, fs, vuv, signal_time, default_f0)
 
 #####################################################
 
-def GetSpectralParameters(temporal_positions, temporal_position_index,\
-                          spectrogram, amplitude_periodic, amplitude_random, pulse_locations):
+def get_spectral_parameters(temporal_positions, temporal_position_index, \
+                            spectrogram, amplitude_periodic, amplitude_random, pulse_locations):
     floor_index = int(np.floor(temporal_position_index)) - 1
     ceil_index  = int(np.ceil(temporal_position_index)) - 1
     t1 = temporal_positions[floor_index]
