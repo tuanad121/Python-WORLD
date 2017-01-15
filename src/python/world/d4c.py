@@ -125,6 +125,9 @@ def EstimateOneSlice(x, fs, current_f0, frequency_interval, current_position, ff
 
 #########################################################################################################
 def CalculateStaticCentroid(x, fs, f0, temporal_position, fft_size):
+    '''
+        First step: calculation of temporally static parameters on basis of group delay
+    '''     
     waveform1 = CalculateWaveform(x, fs, f0, temporal_position + 1 / f0 / 4, 2, 2)
     waveform2 = CalculateWaveform(x, fs, f0, temporal_position - 1 / f0 / 4, 2, 2)
 
@@ -154,6 +157,9 @@ def CalculateSmoothedPowerSpectrum(waveform, fs, f0, fft_size):
 
 ##########################################################################################################
 def CalculateStaticGroupDelay(static_centroid, smoothed_power_spectrum, fs, f0, fft_size):
+    '''
+          Second step: calculation of parameter shaping
+    '''    
     group_delay = static_centroid / smoothed_power_spectrum
     group_delay = LinearSmoothing(group_delay, fs, fft_size, f0 / 2)
     group_delay = np.append(group_delay, group_delay[-2 : 0 : -1])
@@ -178,6 +184,10 @@ def LinearSmoothing(group_delay, fs, fft_size, width):
 
 #########################################################################################################
 def CalculateCoarseAperiodicity(group_delay, fs, fft_size, frequency_interval, number_of_aperiodicity, window):
+    '''
+        Third step:
+        estimation of band-aperiodicity
+        '''    
     boundary = round_matlab(fft_size / len(window) * 8)
     
     half_window_length = int(np.floor(len(window) / 2))
@@ -219,6 +229,10 @@ def interp1H(x, y, xi):
 
 ##########################################################################################################
 def nuttall(N):
+    '''
+        Nuttall window 
+        'Some windows with very good sidelobe behavior', Nuttall, 1981
+        '''    
     t = np.asmatrix(np.arange(N) * 2 * math.pi / (N-1))
     coefs = np.array([0.355768, -0.487396, 0.144232, -0.012604])
     window = coefs @ np.cos(np.matrix([0,1,2,3]).T @ t)
