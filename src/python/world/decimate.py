@@ -2,6 +2,9 @@ import numpy as np
 from scipy import signal
 def decimate(x, q, n=None, ftype='iir', axis=-1, zero_phase=None):
     """
+    This script is coming from scipy python in signal package.
+    I need to modify it a litte bit so I put it here
+
     Downsample the signal after applying an anti-aliasing filter.
 
     By default, an order 8 Chebyshev type I filter is used. A 30 point FIR
