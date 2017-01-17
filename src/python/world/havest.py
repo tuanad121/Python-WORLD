@@ -7,10 +7,7 @@ import math
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.signal import lfilter
-
-# local imports
-from . import decimate # the script comes from scipy.signal with a little change  - TODO: what would need to be done to use it unmodified?
-
+from scipy.signal import decimate
 
 def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
     basic_frame_period = 1
@@ -64,7 +61,7 @@ def CalculateDownsampledSignal(x, fs, target_fs):
         actual_fs = fs
     else:
         # TODO: decimate can be troublesome
-        y0 = decimate.decimate(x, decimation_ratio, ftype='iir', n = 3, zero_phase=True)
+        y0 = decimate(x, decimation_ratio, ftype='iir', n = 3, zero_phase=True)
         actual_fs = fs / decimation_ratio
         y = y0[int(offset / decimation_ratio) : int(-offset / decimation_ratio)]
     y -= np.mean(y)
@@ -135,8 +132,7 @@ def RefineCandidates(x, fs, temporal_positions, f0_candidates, f0_floor, f0_ceil
             tmp_f0 = f0_candidates[j, i]
             if tmp_f0 == 0:
                 continue
-            new_f0_candidates[j, i], f0_candidates_score[j, i] =\
-                GetRefinedF0(x, fs, temporal_positions[i], tmp_f0, f0_floor, f0_ceil)
+            new_f0_candidates[j, i], f0_candidates_score[j, i] = GetRefinedF0(x, fs, temporal_positions[i], tmp_f0, f0_floor, f0_ceil)
     return new_f0_candidates, f0_candidates_score
 
 
@@ -163,14 +159,14 @@ def GetRefinedF0(x, fs, current_time, current_f0, f0_floor, f0_ceil):
     power_spectrum = np.abs(spectrum) ** 2
     instantaneous_frequency = fx + numerator_i / power_spectrum * fs / 2 / math.pi
 
-    max_trim = min(np.floor(fs / 2 / current_f0), 6) # with safe guard
-    trim_index = np.arange(1, max_trim + 1)
-    index_list_trim = np.array([round_matlab(elm) for elm in (current_f0 * fft_size / fs * trim_index)]) # check later
-    fixp_list = instantaneous_frequency[index_list_trim]
-    amp_list = np.sqrt(power_spectrum[index_list_trim])
-    refined_f0 = np.sum(amp_list * fixp_list) / np.sum(amp_list * trim_index)
+    number_of_harmonics = min(np.floor(fs / 2 / current_f0), 6) # with safe guard
+    harmonic_index = np.arange(1, number_of_harmonics + 1)
+    index_list = np.array([round_matlab(elm) for elm in (current_f0 * fft_size / fs * harmonic_index)]) # check later
+    instantaneous_frequency_list = instantaneous_frequency[index_list]
+    amplitude_list = np.sqrt(power_spectrum[index_list])
+    refined_f0 = np.sum(amplitude_list * instantaneous_frequency_list) / np.sum(amplitude_list * harmonic_index)
 
-    variation = np.abs(((fixp_list / trim_index) - current_f0) / current_f0)
+    variation = np.abs(((instantaneous_frequency_list / harmonic_index) - current_f0) / current_f0)
     refined_score = 1 / (0.000000000001 + np.mean(variation))
     if refined_f0 < f0_floor or refined_f0 > f0_ceil or refined_score < 2.5:
         refined_f0 = 0
@@ -308,7 +304,7 @@ def FixStep2(f0_step1, voice_range_minimum):
     f0_step2 = copy.deepcopy(f0_step1)
     boundary_list = GetBoundaryList(f0_step1)
 
-    for i in np.arange(1, len(boundary_list) / 2 + 1):
+    for i in np.arange(1, len(boundary_list) // 2 + 1):
         distance = boundary_list[2 * i - 1] - boundary_list[(2 * i) - 2]
         if distance < voice_range_minimum:
             f0_step2[boundary_list[(2 * i) - 2] : boundary_list[2 * i - 1] + 1] = 0
@@ -321,12 +317,12 @@ def FixStep3(f0_step2, f0_candidates, allowed_range, f0_candidates_score):
     f0_step3 = copy.deepcopy(f0_step2)
     boundary_list = GetBoundaryList(f0_step2)
     multi_channel_f0 = GetMultiChannelF0(f0_step2, boundary_list)
-    range = np.zeros((len(boundary_list) / 2, 2))
+    range = np.zeros((len(boundary_list) // 2, 2))
     threshold1 = 100
     threshold2 = 2200
 
     count = -1
-    for i in np.arange(1, len(boundary_list) / 2 + 1):
+    for i in np.arange(1, len(boundary_list) // 2 + 1):
         tmp_range = np.zeros(2)
         # Value 100 is optimized.
         extended_f0, tmp_range[1] = ExtendF0(multi_channel_f0[i - 1, :], boundary_list[i * 2 - 1], min(len(f0_step2) - 2,
@@ -334,7 +330,7 @@ def FixStep3(f0_step2, f0_candidates, allowed_range, f0_candidates_score):
         tmp_f0_sequence, tmp_range[0] = ExtendF0(extended_f0, boundary_list[(i * 2) - 2],
             max(1, boundary_list[(i * 2) - 2] - threshold1), -1, f0_candidates, allowed_range)
 
-        mean_f0 = np.mean(tmp_f0_sequence[tmp_range[0] : tmp_range[1] + 1])
+        mean_f0 = np.mean(tmp_f0_sequence[int(tmp_range[0]) : int(tmp_range[1]) + 1])
         if threshold2 / mean_f0 < tmp_range[1] - tmp_range[0]:
             count += 1
             multi_channel_f0[count, :] = tmp_f0_sequence
@@ -352,7 +348,7 @@ def FixStep4(f0_step3, threshold):
     f0_step4 = copy.deepcopy(f0_step3)
     boundary_list = GetBoundaryList(f0_step3)
 
-    for i in np.arange(1, len(boundary_list) / 2 ):
+    for i in np.arange(1, len(boundary_list) // 2 ):
         distance = boundary_list[2 * i] - boundary_list[2 * i - 1] - 1
         if distance >= threshold:
             continue
@@ -393,37 +389,41 @@ def ExtendF0(f0, origin, last_point, shift, f0_candidates, allowed_range):
 
 ####################################################################################################
 def GetMultiChannelF0(f0, boundary_list):
-    multi_channel_f0 = np.zeros((len(boundary_list) / 2, len(f0)))
-    for i in np.arange(1, len(boundary_list) / 2 + 1):
+    multi_channel_f0 = np.zeros((len(boundary_list) // 2, len(f0)))
+    for i in np.arange(1, len(boundary_list) // 2 + 1):
         multi_channel_f0[i - 1, boundary_list[(i * 2) - 2] : boundary_list[i * 2 - 1] + 1] =\
             f0[boundary_list[(i * 2) - 2] : boundary_list[(i * 2) - 1] + 1]
     return multi_channel_f0
 
 
 ####################################################################################################
-def MergeF0(multi_channel_f0, range, f0_candidates, f0_candidates_score):
+def MergeF0(multi_channel_f0, range_, f0_candidates, f0_candidates_score):
     number_of_channels = multi_channel_f0.shape[0]
-    sorted_order = np.argsort(range[:, 0], axis=0, kind='quicksort')
+    sorted_order = np.argsort(range_[:, 0], axis=0, kind='quicksort')
     f0 = multi_channel_f0[sorted_order[0], :]
+    range_ = range_.astype(int)
 
     for i in np.arange(1, number_of_channels):
         # without overlapping
-        if range[sorted_order[i], 0] - range[sorted_order[0], 1] > 0:
-            f0[range[sorted_order[i], 0] : range[sorted_order[i], 1] + 1] = multi_channel_f0[sorted_order[i],\
-                                                        range[sorted_order[i], 0] : range[sorted_order[i], 1] + 1]
-            range[sorted_order[0], 0] = range[sorted_order[i], 0]
-            range[sorted_order[0], 1] = range[sorted_order[i], 1]
+        if range_[sorted_order[i], 0] - range_[sorted_order[0], 1] > 0:
+            f0[range_[sorted_order[i], 0] : range_[sorted_order[i], 1] + 1] = multi_channel_f0[sorted_order[i],\
+                                                        range_[sorted_order[i], 0] : range_[sorted_order[i], 1] + 1]
+            range_[sorted_order[0], 0] = range_[sorted_order[i], 0]
+            range_[sorted_order[0], 1] = range_[sorted_order[i], 1]
         else: # with overlapping
-            f0, range[sorted_order[0], 1] = MergeF0Sub(f0, range[sorted_order[0], 0], range[sorted_order[0], 1],
-              multi_channel_f0[sorted_order[i], :], range[sorted_order[i], 0],
-              range[sorted_order[i], 1], f0_candidates, f0_candidates_score)
+            f0, range_[sorted_order[0], 1] = MergeF0Sub(f0, range_[sorted_order[0], 0], range_[sorted_order[0], 1],
+              multi_channel_f0[sorted_order[i], :], range_[sorted_order[i], 0],
+              range_[sorted_order[i], 1], f0_candidates, f0_candidates_score)
     return f0
 
 
 ####################################################################################################
 def MergeF0Sub(f0_1, st1, ed1, f0_2, st2, ed2, f0_candidates, f0_candidates_score):
     merged_f0 = copy.deepcopy(f0_1)
-
+    st1 = int(st1)
+    st2 = int(st2)
+    ed1 = int(ed1)
+    ed2 = int(ed2)
     # Completely overlapping section
     if st1 <= st2 and ed1 >= ed2:
         new_ed = ed1
@@ -490,7 +490,7 @@ def SmoothF0(f0):
     smoothed_f0 = np.append(np.append(np.zeros(300), f0), np.zeros(300))
     boundary_list = GetBoundaryList(smoothed_f0)
     multi_channel_f0 = GetMultiChannelF0(smoothed_f0, boundary_list)
-    for i in np.arange(1, len(boundary_list) / 2 + 1):
+    for i in np.arange(1, len(boundary_list) // 2 + 1):
         tmp_f0_contour = FilterF0(multi_channel_f0[i - 1, :], boundary_list[i * 2 - 2], boundary_list[i * 2 - 1], b, a)
         smoothed_f0[boundary_list[i * 2 - 2] : boundary_list[i * 2 - 1] + 1] = \
             tmp_f0_contour[boundary_list[i * 2 - 2] : boundary_list[i * 2 - 1] + 1]
@@ -543,3 +543,111 @@ def GetBoundaryList(f0):
     boundary_list[0:: 2] += 1
     return boundary_list
 
+
+#############################################################################################################
+#def decimate(x, q, n=None, ftype='iir', axis=-1, zero_phase=None):
+    #"""
+    #This script is coming from scipy python in signal package.
+    #I need to modify it a litte bit so I put it here
+
+    #Downsample the signal after applying an anti-aliasing filter.
+
+    #By default, an order 8 Chebyshev type I filter is used. A 30 point FIR
+    #filter with Hamming window is used if `ftype` is 'fir'.
+
+    #Parameters
+    #----------
+    #x : ndarray
+        #The signal to be downsampled, as an N-dimensional array.
+    #q : int
+        #The downsampling factor. For downsampling factors higher than 13, it is
+        #recommended to call `decimate` multiple times.
+    #n : int, optional
+        #The order of the filter (1 less than the length for 'fir'). Defaults to
+        #8 for 'iir' and 30 for 'fir'.
+    #ftype : str {'iir', 'fir'} or ``dlti`` instance, optional
+        #If 'iir' or 'fir', specifies the type of lowpass filter. If an instance
+        #of an `dlti` object, uses that object to filter before downsampling.
+    #axis : int, optional
+        #The axis along which to decimate.
+    #zero_phase : bool, optional
+        #Prevent phase shift by filtering with `filtfilt` instead of `lfilter`
+        #when using an IIR filter, and shifting the outputs back by the filter's
+        #group delay when using an FIR filter. A value of ``True`` is
+        #recommended, since a phase shift is generally not desired. Using
+        #``None`` defaults to ``False`` for backwards compatibility. This
+        #default will change to ``True`` in a future release, so it is best to
+        #set this argument explicitly.
+
+        #.. versionadded:: 0.18.0
+
+    #Returns
+    #-------
+    #y : ndarray
+        #The down-sampled signal.
+
+    #See Also
+    #--------
+    #resample : Resample up or down using the FFT method.
+    #resample_poly : Resample using polyphase filtering and an FIR filter.
+
+    #Notes
+    #-----
+    #The ``zero_phase`` keyword was added in 0.18.0.
+    #The possibility to use instances of ``dlti`` as ``ftype`` was added in
+    #0.18.0.
+    #"""
+
+    #if not isinstance(q, int):
+        #raise TypeError("q must be an integer")
+
+    #if n is not None and not isinstance(n, int):
+        #raise TypeError("n must be an integer")
+
+    #if ftype == 'fir':
+        #if n is None:
+            #n = 30
+        #system = signal.dlti(signal.firwin(n + 1, 1. / q, window='hamming'), 1.)
+    #elif ftype == 'iir':
+        #if n is None:
+            #n = 8
+        #system = signal.dlti(*signal.cheby1(n, 0.05, 0.8 / q))
+    #elif isinstance(ftype, dlti):
+        #system = ftype._as_tf()  # Avoids copying if already in TF form
+        #n = np.max((system.num.size, system.den.size)) - 1
+    #else:
+        #raise ValueError('invalid ftype')
+
+    #if zero_phase is None:
+        #warnings.warn(" Note: Decimate's zero_phase keyword argument will "
+                      #"default to True in a future release. Until then, "
+                      #"decimate defaults to one-way filtering for backwards "
+                      #"compatibility. Ideally, always set this argument "
+                      #"explicitly.", FutureWarning)
+        #zero_phase = False
+
+    #sl = [slice(None)] * x.ndim
+
+    #if len(system.den) == 1:  # FIR case
+        #if zero_phase:
+            #y = signal.resample_poly(x, 1, q, axis=axis, window=system.num)
+        #else:
+            ## upfirdn is generally faster than lfilter by a factor equal to the
+            ## downsampling factor, since it only calculates the needed outputs
+            #n_out = x.shape[axis] // q + bool(x.shape[axis] % q)
+            #y = signal.upfirdn(system.num, x, up=1, down=q, axis=axis)
+            #sl[axis] = slice(None, n_out, None)
+
+    #else:  # IIR case
+        #if zero_phase:
+            #y = signal.filtfilt(system.num, system.den, x, axis=axis, padlen=3 * (max(len(system.den), len(system.num)) - 1))
+
+        #else:
+            #y = signal.lfilter(system.num, system.den, x, axis=axis)
+        ## sl[axis] = slice(None, None, q)
+        ## make it the same as matlab
+        #nd = len(y)
+        #n_out = np.ceil(nd / q)
+        #n_beg = int(q - (q * n_out - nd))
+        ## sl[axis] = slice(None, None, q)
+    #return y[n_beg - 1::q]

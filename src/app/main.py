@@ -12,24 +12,23 @@ from scipy.io.wavfile import write
 #for now, let's stay pysig independent, since we may want to distribute our code freely later
 #sys.path.append('/Users/tuandinh/bakup/pysig/src/python')
 #from pysig import track
-sys.path.append('../python')
+sys.path.append('../python/world')
 
 
 import pyximport; pyximport.install()
 
-from dio import Dio
-from dio import ZeroCrossingEngine # yours
-from dio import GetF0Candidates
-from StoneMask import StoneMask
-from cheapTrick import CheapTrick
-from D4C import D4C
-from Synthesis import Synthesis
-import pyworld as pw # official
+from dio import dio
+from stonemask import stonemask
+from cheaptrick import cheaptrick
+from d4c import d4c
+from havest import havest
+from synthesis import synthesis
+#import pyworld as pw # official
 
 
-name='../python/test/test-mwm'
+name='../python/world/test-mwm'
 fs, x_int16 = wavread('{}.wav'.format(name))
-if 1: # limit for debug
+if 0: # limit for debug
     x_int16 = x_int16[:fs * 2]
 x = x_int16 / (2 ** 15 - 1) # go to FP in range [-1, 1]
 
@@ -37,22 +36,24 @@ assert x.dtype == np.float
 
 def process():
     # analysis
-    f0_data = Dio(x,fs)
-    #no_stonemask = np.copy(f0_data['f0'])
-    f0_data['f0'] = StoneMask(x, fs,f0_data['temporal_positions'], f0_data['f0'])
+    if 0: # use dio
+        f0_data = dio(x,fs)
+        f0_data['f0'] = stonemask(x, fs,f0_data['temporal_positions'], f0_data['f0'])
+    else: # use havest
+        f0_data = havest(x,fs)
 
-    filter_object = CheapTrick(x, fs, f0_data)
-    source_object = D4C(x, fs, f0_data)
+    filter_object = cheaptrick(x, fs, f0_data)
+    source_object = d4c(x, fs, f0_data)
     sp2 = filter_object['spectrogram']
     ap2 = source_object['aperiodicity']
 
-    if 1: # modification: pitch
+    if 0: # modification: pitch
         #f0_data['f0'] *= 1  # global factor
         f0_data['f0'] = np.linspace(150, 100, len(f0_data['f0']))
 
     if 0: # modification: duration
-        source_object['temporal_positions'] *= 1
-        filter_object['temporal_positions'] *= 1
+        source_object['temporal_positions'] *= 1.5
+        filter_object['temporal_positions'] *= 1.5
 
     if 0: # modification: spectral
         def warp(s):
@@ -67,7 +68,7 @@ def process():
         #filter_object['spectrogram'][:] = filter_object['spectrogram'][:,-1::-1]  # reverse
 
     # synthesis
-    y = Synthesis(source_object, filter_object)
+    y = synthesis(source_object, filter_object)
     import simpleaudio as sa
     snd = sa.play_buffer((y * 2**15).astype(np.int16), 1, 2, fs)
     snd.wait_done()
@@ -108,7 +109,7 @@ if 0:  # matplotlib
     ax[4].axis(xmin=0, xmax=t[-1])
     ax[4].set_xlabel('time (s)')
     pyplot.show()
-if 1:  # pyqtgraph
+if 0:  # pyqtgraph
     from pyqtgraph.Qt import QtGui, QtCore
     import pyqtgraph as pg
 
