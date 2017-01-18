@@ -27,11 +27,10 @@ def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
     Caution: minimum frame_period is 1.
     '''
     temporal_positions = np.arange(0, np.size(x) / fs, frame_period / 1000) #careful!! check later
-    
+    # log2(f0_ceil / f0_floor) = number of octaves
     boundary_f0_list = np.arange(math.ceil(np.log2(f0_ceil / f0_floor) * channels_in_octave)) + 1
-    boundary_f0_list = boundary_f0_list / channels_in_octave 
-    boundary_f0_list = 2.0 ** boundary_f0_list
-    boundary_f0_list = f0_floor * boundary_f0_list
+    boundary_f0_list = boundary_f0_list / channels_in_octave
+    boundary_f0_list = f0_floor * (2.0 ** boundary_f0_list)
     
     #down sample to target Hz
     y, actual_fs = get_downsampled_signal(x, fs, target_fs)
@@ -76,11 +75,12 @@ def get_spectrum(x, fs, lowest_f0):
                                         int(Decimal(fs / lowest_f0 / 2).quantize(0, ROUND_HALF_UP)) * 4,2)) 
     #low-cut filtering
     cutoff_in_sample = int(Decimal(fs / 50).quantize(0, ROUND_HALF_UP))
-    low_cut_filter = np.hanning(2 * cutoff_in_sample + 1)
+    #low_cut_filter = np.hanning(2 * cutoff_in_sample + 1)
+    low_cut_filter = signal.hanning(2 * cutoff_in_sample + 3)[1:-1]
     low_cut_filter = -low_cut_filter / np.sum(low_cut_filter)
     low_cut_filter[cutoff_in_sample] = low_cut_filter[cutoff_in_sample] + 1
-    low_cut_filter = np.concatenate([low_cut_filter,np.zeros(fft_size - np.size(low_cut_filter))])
-    low_cut_filter = np.concatenate([low_cut_filter[cutoff_in_sample:], low_cut_filter[:cutoff_in_sample]])
+    low_cut_filter = np.r_[low_cut_filter, np.zeros(fft_size - len(low_cut_filter))]
+    low_cut_filter = np.r_[low_cut_filter[cutoff_in_sample:], low_cut_filter[:cutoff_in_sample]]
     
     x_spectrum = np.fft.fft(x, fft_size) * np.fft.fft(low_cut_filter, fft_size)
     return x_spectrum
