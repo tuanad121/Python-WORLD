@@ -66,10 +66,10 @@ def synthesis(source_object, filter_object):
         output_buffer_index = np.maximum(1, np.minimum(y_length, pulse_locations_index[i] + base_index))
         
         if interpolated_vuv[pulse_locations_index[i] - 1] >= 0.5:
-            spectrum_slice *= periodic_slice
-            spectrum_slice[spectrum_slice == 0] = sys.float_info.epsilon
+            tmp_spectrum_slice = spectrum_slice * periodic_slice
+            tmp_spectrum_slice[tmp_spectrum_slice == 0] = sys.float_info.epsilon
 
-            periodic_spectrum = np.r_[spectrum_slice, spectrum_slice[-2 : 0 : -1]]
+            periodic_spectrum = np.r_[tmp_spectrum_slice, tmp_spectrum_slice[-2 : 0 : -1]]
 
             tmp_cepstrum = np.fft.fft(np.log(np.abs(periodic_spectrum)) / 2).real
             tmp_complex_cepstrum[latter_index.astype(int) - 1] = tmp_cepstrum[latter_index.astype(int) - 1] * 2
@@ -95,8 +95,8 @@ def synthesis(source_object, filter_object):
         response2 = np.fft.fftshift(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum))).real)
 
         noise_input = np.random.randn(max(3, noise_size))
+        #noise_input = np.zeros(max(3, noise_size)) + 0.1
         y[output_buffer_index.astype(int) - 1] += fftfilt(noise_input - np.mean(noise_input), response2)
-        
     return y
 
 #####################################################
@@ -115,8 +115,8 @@ def time_base_generation(temporal_positions, f0, fs, vuv, signal_time, default_f
     pulse_locations_index = np.array([int(Decimal(elm * fs).quantize(0, ROUND_HALF_UP)) for elm in pulse_locations]) + 1
     return pulse_locations, pulse_locations_index, vuv_interpolated
 
-#####################################################
 
+#####################################################
 def get_spectral_parameters(temporal_positions, temporal_position_index,
                             spectrogram, amplitude_periodic, amplitude_random, pulse_locations):
     floor_index = int(np.floor(temporal_position_index)) - 1

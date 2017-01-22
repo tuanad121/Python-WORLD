@@ -54,8 +54,8 @@ def d4c(x, fs, f0_object, threshold=0.85):
                                                  number_of_aperiodicity, window)
         coarse_aperiodicity = np.maximum(0, coarse_aperiodicity - (current_f0 - 100) * 2 / 100)
         ap_debug[:, i] = -coarse_aperiodicity # for debug
-        aperiodicity[:, i] = 10 ** ((interp1d(coarse_axis, np.r_[np.r_[-60, -coarse_aperiodicity], -0.000000000001],
-                                              kind='linear')(frequency_axis)) / 20)
+        aperiodicity[:, i] = 10 ** ((interp1d(coarse_axis, np.r_[np.r_[-60, -coarse_aperiodicity], -0.000000000001])
+                                     (frequency_axis)) / 20)
         
     source_object['aperiodicity'] = aperiodicity
     source_object['coarse_ap'] = ap_debug
@@ -80,9 +80,9 @@ def d4c_love_train(x, fs, current_f0, current_position, threshold):
     waveform = get_windowed_waveform(x, fs, current_f0, current_position, 1.5, 2)
     power_spectrum = np.abs(np.fft.fft(waveform, fft_size)) ** 2
     power_spectrum[0 : boundary0] = 0.0
-    cumlative_spectrum = np.cumsum(power_spectrum)
+    cumulative_spectrum = np.cumsum(power_spectrum)
 
-    if cumlative_spectrum[boundary1 - 1] / cumlative_spectrum[boundary2 - 1] > threshold:
+    if (cumulative_spectrum[boundary1 - 1] / cumulative_spectrum[boundary2 - 1]) > threshold:
         vuv = 1
     return vuv
 
@@ -120,20 +120,22 @@ def estimate_one_slice(x, fs, current_f0, frequency_interval, current_position, 
     static_group_delay = get_static_group_delay(static_centroid, smoothed_power_spectrum, fs, current_f0, fft_size)
     coarse_aperiodicity =\
         get_coarse_aperiodicity(static_group_delay, fs, fft_size, frequency_interval, number_of_aperiodicity, window)
+
     return coarse_aperiodicity
 
 
 #########################################################################################################
-def get_static_centroid(x, fs, f0, temporal_position, fft_size):
+def get_static_centroid(x, fs, current_f0, temporal_position, fft_size):
     '''
         First step: calculation of temporally static parameters on basis of group delay
     '''     
-    waveform1 = get_windowed_waveform(x, fs, f0, temporal_position + 1 / f0 / 4, 2, 2)
-    waveform2 = get_windowed_waveform(x, fs, f0, temporal_position - 1 / f0 / 4, 2, 2)
+    waveform1 = get_windowed_waveform(x, fs, current_f0, temporal_position + 1 / current_f0 / 4, 2, 2)
+    waveform2 = get_windowed_waveform(x, fs, current_f0, temporal_position - 1 / current_f0 / 4, 2, 2)
 
     centroid1 = get_centroid(waveform1, fft_size)
     centroid2 = get_centroid(waveform2, fft_size)
-    return dc_correction(centroid1 + centroid2, fs, fft_size, f0)
+
+    return dc_correction(centroid1 + centroid2, fs, fft_size, current_f0)
     
 
 #########################################################################################################

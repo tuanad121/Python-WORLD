@@ -6,7 +6,7 @@ def call_matlab(filename):
     mlab.start()
     matlab_code = \
 '''
-addpath('../matlab/world-0.2.0_7_matlab');
+addpath('../../matlab/world-0.2.1_matlab');
 [x, fs] = audioread('{}');
 if 0 % You can use Dio
 f0_parameter = Dio(x, fs);

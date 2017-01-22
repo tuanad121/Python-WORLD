@@ -7,7 +7,7 @@ import math
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.signal import lfilter
-from scipy.signal import decimate
+#from scipy.signal import decimate
 
 def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
     basic_frame_period = 1
@@ -284,6 +284,7 @@ def SearchF0Base(f0_candidates, f0_candidates_score):
 ####################################################################################################
 # Step 1: Rapid change of f0 contour is replaced by 0
 def FixStep1(f0_base, allowed_range):
+    from sys import float_info
     f0_step1 = copy.copy(f0_base)
     f0_step1[0] = 0
     f0_step1[1] = 0
@@ -293,7 +294,7 @@ def FixStep1(f0_base, allowed_range):
             continue
         reference_f0 = f0_base[i - 1] * 2 - f0_base[i - 2]
         if np.abs((f0_base[i] - reference_f0) / reference_f0) > allowed_range and \
-                        np.abs((f0_base[i] - f0_base[i - 1]) / f0_base[i - 1]) > allowed_range:
+                        np.abs((f0_base[i] - f0_base[i - 1]) / (f0_base[i - 1] + float_info.epsilon)) > allowed_range:
             f0_step1[i] = 0
     return f0_step1
 
@@ -545,109 +546,109 @@ def GetBoundaryList(f0):
 
 
 #############################################################################################################
-#def decimate(x, q, n=None, ftype='iir', axis=-1, zero_phase=None):
-    #"""
-    #This script is coming from scipy python in signal package.
-    #I need to modify it a litte bit so I put it here
+def decimate(x, q, n=None, ftype='iir', axis=-1, zero_phase=None):
+    """
+    This script is coming from scipy python in signal package.
+    I need to modify it a litte bit so I put it here
 
-    #Downsample the signal after applying an anti-aliasing filter.
+    Downsample the signal after applying an anti-aliasing filter.
 
-    #By default, an order 8 Chebyshev type I filter is used. A 30 point FIR
-    #filter with Hamming window is used if `ftype` is 'fir'.
+    By default, an order 8 Chebyshev type I filter is used. A 30 point FIR
+    filter with Hamming window is used if `ftype` is 'fir'.
 
-    #Parameters
-    #----------
-    #x : ndarray
-        #The signal to be downsampled, as an N-dimensional array.
-    #q : int
-        #The downsampling factor. For downsampling factors higher than 13, it is
-        #recommended to call `decimate` multiple times.
-    #n : int, optional
-        #The order of the filter (1 less than the length for 'fir'). Defaults to
-        #8 for 'iir' and 30 for 'fir'.
-    #ftype : str {'iir', 'fir'} or ``dlti`` instance, optional
-        #If 'iir' or 'fir', specifies the type of lowpass filter. If an instance
-        #of an `dlti` object, uses that object to filter before downsampling.
-    #axis : int, optional
-        #The axis along which to decimate.
-    #zero_phase : bool, optional
-        #Prevent phase shift by filtering with `filtfilt` instead of `lfilter`
-        #when using an IIR filter, and shifting the outputs back by the filter's
-        #group delay when using an FIR filter. A value of ``True`` is
-        #recommended, since a phase shift is generally not desired. Using
-        #``None`` defaults to ``False`` for backwards compatibility. This
-        #default will change to ``True`` in a future release, so it is best to
-        #set this argument explicitly.
+    Parameters
+    ----------
+    x : ndarray
+        The signal to be downsampled, as an N-dimensional array.
+    q : int
+        The downsampling factor. For downsampling factors higher than 13, it is
+        recommended to call `decimate` multiple times.
+    n : int, optional
+        The order of the filter (1 less than the length for 'fir'). Defaults to
+        8 for 'iir' and 30 for 'fir'.
+    ftype : str {'iir', 'fir'} or ``dlti`` instance, optional
+        If 'iir' or 'fir', specifies the type of lowpass filter. If an instance
+        of an `dlti` object, uses that object to filter before downsampling.
+    axis : int, optional
+        The axis along which to decimate.
+    zero_phase : bool, optional
+        Prevent phase shift by filtering with `filtfilt` instead of `lfilter`
+        when using an IIR filter, and shifting the outputs back by the filter's
+        group delay when using an FIR filter. A value of ``True`` is
+        recommended, since a phase shift is generally not desired. Using
+        ``None`` defaults to ``False`` for backwards compatibility. This
+        default will change to ``True`` in a future release, so it is best to
+        set this argument explicitly.
 
-        #.. versionadded:: 0.18.0
+        .. versionadded:: 0.18.0
 
-    #Returns
-    #-------
-    #y : ndarray
-        #The down-sampled signal.
+    Returns
+    -------
+    y : ndarray
+        The down-sampled signal.
 
-    #See Also
-    #--------
-    #resample : Resample up or down using the FFT method.
-    #resample_poly : Resample using polyphase filtering and an FIR filter.
+    See Also
+    --------
+    resample : Resample up or down using the FFT method.
+    resample_poly : Resample using polyphase filtering and an FIR filter.
 
-    #Notes
-    #-----
-    #The ``zero_phase`` keyword was added in 0.18.0.
-    #The possibility to use instances of ``dlti`` as ``ftype`` was added in
-    #0.18.0.
-    #"""
+    Notes
+    -----
+    The ``zero_phase`` keyword was added in 0.18.0.
+    The possibility to use instances of ``dlti`` as ``ftype`` was added in
+    0.18.0.
+    """
+    from scipy import signal
+    if not isinstance(q, int):
+        raise TypeError("q must be an integer")
 
-    #if not isinstance(q, int):
-        #raise TypeError("q must be an integer")
+    if n is not None and not isinstance(n, int):
+        raise TypeError("n must be an integer")
 
-    #if n is not None and not isinstance(n, int):
-        #raise TypeError("n must be an integer")
+    if ftype == 'fir':
+        if n is None:
+            n = 30
+        system = signal.dlti(signal.firwin(n + 1, 1. / q, window='hamming'), 1.)
+    elif ftype == 'iir':
+        if n is None:
+            n = 8
+        system = signal.dlti(*signal.cheby1(n, 0.05, 0.8 / q))
+    elif isinstance(ftype, dlti):
+        system = ftype._as_tf()  # Avoids copying if already in TF form
+        n = np.max((system.num.size, system.den.size)) - 1
+    else:
+        raise ValueError('invalid ftype')
 
-    #if ftype == 'fir':
-        #if n is None:
-            #n = 30
-        #system = signal.dlti(signal.firwin(n + 1, 1. / q, window='hamming'), 1.)
-    #elif ftype == 'iir':
-        #if n is None:
-            #n = 8
-        #system = signal.dlti(*signal.cheby1(n, 0.05, 0.8 / q))
-    #elif isinstance(ftype, dlti):
-        #system = ftype._as_tf()  # Avoids copying if already in TF form
-        #n = np.max((system.num.size, system.den.size)) - 1
-    #else:
-        #raise ValueError('invalid ftype')
+    if zero_phase is None:
+        warnings.warn(" Note: Decimate's zero_phase keyword argument will "
+                      "default to True in a future release. Until then, "
+                      "decimate defaults to one-way filtering for backwards "
+                      "compatibility. Ideally, always set this argument "
+                      "explicitly.", FutureWarning)
+        zero_phase = False
 
-    #if zero_phase is None:
-        #warnings.warn(" Note: Decimate's zero_phase keyword argument will "
-                      #"default to True in a future release. Until then, "
-                      #"decimate defaults to one-way filtering for backwards "
-                      #"compatibility. Ideally, always set this argument "
-                      #"explicitly.", FutureWarning)
-        #zero_phase = False
+    sl = [slice(None)] * x.ndim
 
-    #sl = [slice(None)] * x.ndim
+    if len(system.den) == 1:  # FIR case
+        if zero_phase:
+            y = signal.resample_poly(x, 1, q, axis=axis, window=system.num)
+        else:
+            # upfirdn is generally faster than lfilter by a factor equal to the
+            # downsampling factor, since it only calculates the needed outputs
+            n_out = x.shape[axis] // q + bool(x.shape[axis] % q)
+            y = signal.upfirdn(system.num, x, up=1, down=q, axis=axis)
+            sl[axis] = slice(None, n_out, None)
 
-    #if len(system.den) == 1:  # FIR case
-        #if zero_phase:
-            #y = signal.resample_poly(x, 1, q, axis=axis, window=system.num)
-        #else:
-            ## upfirdn is generally faster than lfilter by a factor equal to the
-            ## downsampling factor, since it only calculates the needed outputs
-            #n_out = x.shape[axis] // q + bool(x.shape[axis] % q)
-            #y = signal.upfirdn(system.num, x, up=1, down=q, axis=axis)
-            #sl[axis] = slice(None, n_out, None)
+    else:  # IIR case
+        if zero_phase:
+            y = signal.filtfilt(system.num, system.den, x, axis=axis, padlen=3 * (max(len(system.den), len(system.num)) - 1))
 
-    #else:  # IIR case
-        #if zero_phase:
-            #y = signal.filtfilt(system.num, system.den, x, axis=axis, padlen=3 * (max(len(system.den), len(system.num)) - 1))
-
-        #else:
-            #y = signal.lfilter(system.num, system.den, x, axis=axis)
-        ## sl[axis] = slice(None, None, q)
-        ## make it the same as matlab
-        #nd = len(y)
-        #n_out = np.ceil(nd / q)
-        #n_beg = int(q - (q * n_out - nd))
-        ## sl[axis] = slice(None, None, q)
-    #return y[n_beg - 1::q]
+        else:
+            y = signal.lfilter(system.num, system.den, x, axis=axis)
+        # sl[axis] = slice(None, None, q)
+        # make it the same as matlab
+        nd = len(y)
+        n_out = np.ceil(nd / q)
+        n_beg = int(q - (q * n_out - nd))
+        # sl[axis] = slice(None, None, q)
+    return y[n_beg - 1::q]

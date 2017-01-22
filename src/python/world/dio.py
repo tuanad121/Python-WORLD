@@ -43,7 +43,6 @@ def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
     f0_candidates, _ = sort_candidates(raw_f0_candidate, raw_stability)
     f0_candidates_tmp = np.copy(f0_candidates)#just want to keep original values of f0_candidates, maybe we don't need this line
     f0, vuv = fix_f0_contour(f0_candidates, frame_period, f0_floor, allowed_range)
-    
     return {'f0':f0,
             'f0_candidates':f0_candidates_tmp,
             'raw_f0_candidates':raw_f0_candidate,
@@ -76,7 +75,7 @@ def get_spectrum(x, fs, lowest_f0):
     #low-cut filtering
     cutoff_in_sample = int(Decimal(fs / 50).quantize(0, ROUND_HALF_UP))
     #low_cut_filter = np.hanning(2 * cutoff_in_sample + 1)
-    low_cut_filter = signal.hanning(2 * cutoff_in_sample + 3)[1:-1]
+    low_cut_filter = signal.hanning(2 * cutoff_in_sample + 3)[1:-1] # remove zeros at starting and ending
     low_cut_filter = -low_cut_filter / np.sum(low_cut_filter)
     low_cut_filter[cutoff_in_sample] = low_cut_filter[cutoff_in_sample] + 1
     low_cut_filter = np.r_[low_cut_filter, np.zeros(fft_size - len(low_cut_filter))]

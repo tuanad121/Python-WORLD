@@ -1,10 +1,12 @@
+#!/usr/bin/env python
+
 """
 Filter data with an FIR filter using the overlap-add method.
 """
 
 from numpy import abs, min, log2, ceil, floor, argmin, \
      zeros, arange, shape, float
-from numpy.fft import fft, ifft, rfft, irfft # TODO: use rfft and irfft
+from numpy.fft import fft, ifft
 
 def nextpow2(x):
     """Return the first integer N such that 2**N >= abs(x)"""
@@ -61,14 +63,14 @@ def fftfilt(b, x, *n):
     L = int(N_fft - N_b + 1)
 
     # Compute the transform of the filter:
-    H = rfft(b,N_fft)
+    H = fft(b,N_fft)
 
     y = zeros(N_x,float)
     i = 0
     while i <= N_x:
         il = min([i+L,N_x])
         k = min([i+N_fft,N_x])
-        yt = irfft(rfft(x[i:il], N_fft) * H, N_fft) # Overlap..
-        y[i:k] = y[i:k] + yt[:k-i]           # and add
+        yt = ifft(fft(x[i:il],N_fft)*H,N_fft) # Overlap..
+        y[i:k] = y[i:k] + yt[:k-i]            # and add
         i += L
     return y
