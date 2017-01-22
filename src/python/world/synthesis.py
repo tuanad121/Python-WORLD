@@ -49,8 +49,8 @@ def synthesis(source_object, filter_object):
     tmp_complex_cepstrum = np.zeros(fft_size)
     latter_index = np.arange(fft_size // 2 + 1, fft_size + 1)
     
-    temporal_position_index = interp1d(temporal_positions, np.arange(1, len(temporal_positions) + 1), \
-                                       kind='linear', fill_value='extrapolate')(pulse_locations)
+    temporal_position_index = interp1d(temporal_positions, np.arange(1, len(temporal_positions) + 1),
+                                       fill_value='extrapolate')(pulse_locations)
     temporal_position_index = np.maximum(1, np.minimum(len(temporal_positions), temporal_position_index))
     
     amplitude_aperiodic = source_object['aperiodicity'] ** 2
@@ -59,7 +59,7 @@ def synthesis(source_object, filter_object):
     for i in range(len(pulse_locations_index)):
         
         spectrum_slice, periodic_slice, aperiodic_slice = \
-            get_spectral_parameters(temporal_positions, temporal_position_index[i], \
+            get_spectral_parameters(temporal_positions, temporal_position_index[i],
                                     spectrogram, amplitude_periodic, amplitude_aperiodic, pulse_locations[i])
     
         noise_size = pulse_locations_index[min(len(pulse_locations_index) - 1, i + 1)] - pulse_locations_index[i]
@@ -81,18 +81,18 @@ def synthesis(source_object, filter_object):
             #tmp_complex_cepstrum[0] = tmp_cepstrum[0]
 
             response = np.fft.fftshift(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum))).real)
-            response *= np.sqrt(max(1, noise_size))
-            y[output_buffer_index.astype(int) - 1] += response
+            y[output_buffer_index.astype(int) - 1] += response * np.sqrt(max(1, noise_size))
             tmp_aperiodic_spectrum = spectrum_slice * aperiodic_slice
         else:
             tmp_aperiodic_spectrum = spectrum_slice
     
         tmp_aperiodic_spectrum[tmp_aperiodic_spectrum == 0] = sys.float_info.epsilon
-        aperiodic_spectrum = np.append(tmp_aperiodic_spectrum, tmp_aperiodic_spectrum[-2 : 0 : -1])
-        tmp_cepstrum = np.real(np.fft.fft(np.log(np.abs(aperiodic_spectrum)) / 2))
+        aperiodic_spectrum = np.r_[tmp_aperiodic_spectrum, tmp_aperiodic_spectrum[-2 : 0 : -1]]
+        # fft problem?
+        tmp_cepstrum = np.fft.fft((np.log(np.abs(aperiodic_spectrum)) / 2)).real
         tmp_complex_cepstrum[latter_index.astype(int) - 1] = tmp_cepstrum[latter_index.astype(int) - 1] * 2
         tmp_complex_cepstrum[0] = tmp_cepstrum[0]
-        response2 = np.fft.fftshift(np.real(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum)))))
+        response2 = np.fft.fftshift(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum))).real)
 
         noise_input = np.random.randn(max(3, noise_size))
         y[output_buffer_index.astype(int) - 1] += fftfilt(noise_input - np.mean(noise_input), response2)
@@ -117,7 +117,7 @@ def time_base_generation(temporal_positions, f0, fs, vuv, signal_time, default_f
 
 #####################################################
 
-def get_spectral_parameters(temporal_positions, temporal_position_index, \
+def get_spectral_parameters(temporal_positions, temporal_position_index,
                             spectrogram, amplitude_periodic, amplitude_random, pulse_locations):
     floor_index = int(np.floor(temporal_position_index)) - 1
     ceil_index  = int(np.ceil(temporal_position_index)) - 1
