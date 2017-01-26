@@ -60,7 +60,7 @@ def synthesis(source_object, filter_object):
         
         spectrum_slice, periodic_slice, aperiodic_slice = \
             get_spectral_parameters(temporal_positions, temporal_position_index[i],
-                                    spectrogram, amplitude_periodic, amplitude_aperiodic, pulse_locations[i])
+                                    spectrogram, amplitude_periodic, amplitude_aperiodic, pulse_locations[i]) # TODO use built-in scipy.interpolation
     
         noise_size = pulse_locations_index[min(len(pulse_locations_index) - 1, i + 1)] - pulse_locations_index[i]
         output_buffer_index = np.maximum(1, np.minimum(y_length, pulse_locations_index[i] + base_index))

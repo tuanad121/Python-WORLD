@@ -31,7 +31,6 @@ fs, x_int16 = wavread('{}.wav'.format(name))
 if 0: # limit for debug
     x_int16 = x_int16[:fs * 2]
 x = x_int16 / (2 ** 15 - 1) # go to FP in range [-1, 1]
-
 assert x.dtype == np.float
 
 def process():
@@ -75,6 +74,15 @@ def process():
     return sp2, f0_data, source_object, y
 
 
+#from world import main
+#codec = main.World() # World is similar to ModCodec in vocoder.py
+#dat = codec.encode(inp, fs)
+#codec.modify_pitch(dat, f0_time, f0_value)
+#dat = codec.decode(dat)
+#out = dat['out']
+#
+
+
 if 0: # profiling
     import cProfile
     p = cProfile.run('sp2, f0_data, y = process()', 'profile')
@@ -83,6 +91,7 @@ if 0: # profiling
     p.sort_stats('cumulative').print_stats(10)
 else:
     sp2, f0_data, source_object, y = process()
+
 
 # equalize lengths for comparison
 l = min(len(x), len(y))

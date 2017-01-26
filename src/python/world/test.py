@@ -1,6 +1,9 @@
+# TODO: use main.py wrapper to do everything
+
 # TODO: write this as a unit test using UnitTest(), using a list of waveforms (or just one)
 # TODO: call oct2py from here
 # TODO: Use self.assertClose for F0
+
 
 # built-in imports
 import sys
@@ -64,6 +67,7 @@ class Test(unittest.TestCase):
     #         f0_matlab, spec_matlab = call_matlab(elm)
     #         np.testing.assert_array_almost_equal(filter_object['spectrogram'], spec_matlab, decimal=2)
 
+    #def test_wav(self):
 
 if __name__ == '__main__':
     unittest.main()
