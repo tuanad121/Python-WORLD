@@ -22,8 +22,7 @@ class World(object):
         elif f0_method == 'havest':
             source = havest(x, fs)
         else:
-            source = dio(x, fs)
-            source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
+            raise Exception
         return source['temporal_positions'], source['f0'] # or a dict
 
     def get_spectrum(self, x: np.ndarray, fs: int, f0_method: str='dio') -> dict:
@@ -33,8 +32,7 @@ class World(object):
         elif f0_method == 'havest':
             source = havest(x, fs)
         else:
-            source = dio(x, fs)
-            source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
+            raise Exception
         filter = cheaptrick(x, fs, source)
         return {'time': source['temporal_positions'],
                 'fs': source['fs'],
@@ -91,26 +89,35 @@ class World(object):
     def draw(self, x: np.ndarray, dat: dict):
         fs = dat['fs']
         time = dat['temporal_positions']
+        y = dat['out']
 
-        fig, ax = plt.subplots(nrows=4, figsize=(8, 6))
-        ax[0].plot(x)
+        fig, ax = plt.subplots(nrows=5, figsize=(8, 6), sharex=True)
+        ax[0].plot(np.arange(len(x)) / fs, x)
+        ax[0].plot(np.arange(len(y)) / fs, y)
         ax[0].set_xlabel('samples')
+        ax[0].legend(['original', 'synthesis'])
 
-        ax[1].plot(dat['out'])
-        ax[1].set_xlabel('samples')
+        X = dat['ps spectrogram']
+        ax[1].imshow(20 * np.log10(np.abs(X[:X.shape[0] // 2, :])), cmap=plt.cm.gray_r, origin='lower',
+                     extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
+        ax[1].set_ylabel('frequency (Hz)')
 
-        ax[2].imshow(20 * np.log10(dat['spectrogram']), cmap=plt.cm.gray_r, origin='lower',
+        ax[2].imshow(np.diff(np.unwrap(np.angle(X[:X.shape[0] // 2, :]), axis=1), axis=1), cmap=plt.cm.gray_r, origin='lower',
                      extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
         ax[2].set_ylabel('frequency (Hz)')
 
-        ax[3].plot(time, dat['f0'])
-        ax[3].set_ylabel('time (s)')
+        ax[3].imshow(20 * np.log10(dat['spectrogram']), cmap=plt.cm.gray_r, origin='lower',
+                     extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
+        ax[3].set_ylabel('frequency (Hz)')
+
+        ax[4].plot(time, dat['f0'])
+        ax[4].set_ylabel('time (s)')
 
         plt.show()
 
 
 if __name__ == '__main__':
-    fs, x_int16 = wavread('test-mwm.wav')
+    fs, x_int16 = wavread('test/test-mwm.wav')
     x = x_int16 / (2 ** 15 - 1)
     vocoder = World()
     #time, value = vocoder.get_f0(x, fs)
@@ -126,12 +133,12 @@ if __name__ == '__main__':
         dat = vocoder.warp_spectrum(dat, 0.8)
     # synthesis
     dat = vocoder.decode(dat)
+    import simpleaudio as sa
+    snd = sa.play_buffer((dat['out'] * 2 ** 15).astype(np.int16), 1, 2, fs)
     if 1:
         # draw smt
         vocoder.draw(x, dat)
-    import simpleaudio as sa
-    snd = sa.play_buffer((dat['out'] * 2 ** 15).astype(np.int16), 1, 2, fs)
-    snd.wait_done()
+    #snd.wait_done()
 
 
 

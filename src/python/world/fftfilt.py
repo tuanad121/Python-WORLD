@@ -70,7 +70,7 @@ def fftfilt(b, x, *n):
     while i <= N_x:
         il = min([i+L,N_x])
         k = min([i+N_fft,N_x])
-        yt = ifft(fft(x[i:il],N_fft)*H,N_fft) # Overlap..
+        yt = ifft(fft(x[i:il],N_fft)*H,N_fft).real # Overlap..
         y[i:k] = y[i:k] + yt[:k-i]            # and add
         i += L
     return y
