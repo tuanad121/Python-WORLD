@@ -92,53 +92,33 @@ class World(object):
         y = dat['out']
 
         fig, ax = plt.subplots(nrows=5, figsize=(8, 6), sharex=True)
+        ax[0].set_title('input signal and resynthesized-signal')
         ax[0].plot(np.arange(len(x)) / fs, x)
         ax[0].plot(np.arange(len(y)) / fs, y)
         ax[0].set_xlabel('samples')
         ax[0].legend(['original', 'synthesis'])
 
         X = dat['ps spectrogram']
+        ax[1].set_title('pitch-synchronous spectrogram')
         ax[1].imshow(20 * np.log10(np.abs(X[:X.shape[0] // 2, :])), cmap=plt.cm.gray_r, origin='lower',
                      extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
         ax[1].set_ylabel('frequency (Hz)')
-
+        
+        ax[2].set_title('phase spectrogram')
         ax[2].imshow(np.diff(np.unwrap(np.angle(X[:X.shape[0] // 2, :]), axis=1), axis=1), cmap=plt.cm.gray_r, origin='lower',
                      extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
         ax[2].set_ylabel('frequency (Hz)')
-
+        
+        ax[3].set_title('WORLD spectrogram')
         ax[3].imshow(20 * np.log10(dat['spectrogram']), cmap=plt.cm.gray_r, origin='lower',
                      extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
         ax[3].set_ylabel('frequency (Hz)')
-
+        
+        ax[4].set_title('WORLD fundamental frequency')
         ax[4].plot(time, dat['f0'])
         ax[4].set_ylabel('time (s)')
 
         plt.show()
-
-
-if __name__ == '__main__':
-    fs, x_int16 = wavread('test/test-mwm.wav')
-    x = x_int16 / (2 ** 15 - 1)
-    vocoder = World()
-    #time, value = vocoder.get_f0(x, fs)
-    # analysis
-    dat = vocoder.encode(x, fs)
-    if 0:
-        # global pitch scaling
-        dat = vocoder.scale_pitch(dat, 2)
-    if 0:
-        # global duration scaling
-        dat = vocoder.scale_duration(dat, 2)
-    if 0:
-        dat = vocoder.warp_spectrum(dat, 0.8)
-    # synthesis
-    dat = vocoder.decode(dat)
-    import simpleaudio as sa
-    snd = sa.play_buffer((dat['out'] * 2 ** 15).astype(np.int16), 1, 2, fs)
-    if 1:
-        # draw smt
-        vocoder.draw(x, dat)
-    #snd.wait_done()
 
 
 
