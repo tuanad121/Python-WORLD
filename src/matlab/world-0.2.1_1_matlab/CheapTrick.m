@@ -22,6 +22,7 @@ function spectrum_paramter = CheapTrick(x, fs, source_object, option)
 % 2015/09/22: A parameter (q1) is controllable.
 % 2016/12/28: Refactoring (default value of q1 was modified. -0.09 -> -0.15)
 % 2017/01/02: A parameter fft_size is controllable.
+% 2017/01/29: A bug was fixed.
 
 % set default parameters
 f0_low_limit = 71;
@@ -36,7 +37,7 @@ if nargin == 4
     fft_size = option.fft_size;
   end;
 end;
-f0_low_limit = fs * 3.0 / fft_size;
+f0_low_limit = fs * 3.0 / (fft_size - 3.0);
 
 temporal_positions = source_object.temporal_positions;
 f0_sequence = source_object.f0;
