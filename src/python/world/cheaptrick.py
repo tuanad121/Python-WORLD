@@ -21,7 +21,7 @@ def cheaptrick(x, fs, source_object, q1=-0.15):
     default_f0 = 500
     fft_size = 2 ** m.ceil(m.log(3 * fs / f0_low_limit + 1, 2))
 
-    f0_low_limit = fs * 3.0 / fft_size
+    f0_low_limit = fs * 3.0 / (fft_size - 3.0)
     temporal_positions = source_object['temporal_positions']
     f0_sequence = source_object['f0']
     f0_sequence[source_object['vuv'] == 0] = default_f0
