@@ -5,9 +5,6 @@ import sys
 import numpy as np
 from scipy.io.wavfile import read as wavread
 from scipy.io.wavfile import write
-
-
-
 # local imports
 #for now, let's stay pysig independent, since we may want to distribute our code freely later
 #sys.path.append('/Users/tuandinh/bakup/pysig/src/python')

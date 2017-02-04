@@ -291,6 +291,7 @@ def fix_step4(f0_step3, f0_candidates, section_list, allowed_range):
 
 ##########################################################################################################
 def select_best_f0(current_f0, past_f0, candidates, allowed_range):
+    from sys import float_info
     reference_f0 = (current_f0 * 3 - past_f0) / 2
     minimum_error = abs(reference_f0 - candidates[0])
     best_f0 = candidates[0]
@@ -300,7 +301,7 @@ def select_best_f0(current_f0, past_f0, candidates, allowed_range):
         if current_error < minimum_error:
             minimum_error = current_error
             best_f0 = candidates[i]
-    if abs(1 - best_f0 / reference_f0) > allowed_range:
+    if abs(1 - best_f0 / (reference_f0 + float_info.epsilon)) > allowed_range:
         best_f0 = 0
     return best_f0
 
