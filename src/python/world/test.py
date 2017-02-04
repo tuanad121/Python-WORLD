@@ -54,29 +54,30 @@ class Test(unittest.TestCase):
             f0_data = havest(x, fs)
             # extract f0 by matlab
             f0_matlab, _ = call_matlab(elm)
-            assert len(f0_data['f0']) == len(f0_matlab), print('{} and {}'.format(len(f0_data['f0']), len(f0_matlab)))
+            assert f0_data['f0'].shape[0] == f0_matlab.shape[0], print('{} and {}'.format(len(f0_data['f0']), len(f0_matlab)))
             np.testing.assert_array_almost_equal(f0_data['f0'], f0_matlab, decimal=2)
 
-    # def test_spectrum(self):
-    #     for elm in self.wav_list:
-    #         # extract f0, spectrogram by python
-    #         fs, x_int16 = wavread(elm)
-    #         x = x_int16 / (2 ** 15 - 1)
-    #         f0_data = havest(x, fs, frame_period=1)
-    #         filter_object = cheaptrick(x, fs, f0_data)
-    #
-    #         # extract f0, spectrogram by matlab
-    #         f0_matlab, spec_matlab = call_matlab(elm)
-    #         np.testing.assert_array_almost_equal(filter_object['spectrogram'], spec_matlab, decimal=2)
+    def test_spectrum(self):
+        for elm in self.wav_list:
+            # extract f0, spectrogram by python
+            fs, x_int16 = wavread(elm)
+            x = x_int16 / (2 ** 15 - 1)
+            f0_data = havest(x, fs)
+            filter_object = cheaptrick(x, fs, f0_data)
+
+            # extract f0, spectrogram by matlab
+            f0_matlab, spec_matlab = call_matlab(elm)
+            np.testing.assert_array_almost_equal(filter_object['spectrogram'], spec_matlab, decimal=2)
 
     #def test_wav(self):
+
 
 def call_matlab(filename):
     mlab = Matlab(executable='/Applications/MATLAB_R2016b.app/bin/matlab')
     mlab.start()
     matlab_code = \
         '''
-        addpath('../../matlab/world-0.2.1_matlab');
+        addpath('../../matlab/world-0.2.1_1_matlab');
         [x, fs] = audioread('{}');
         if 0 % You can use Dio
         f0_parameter = Dio(x, fs);
