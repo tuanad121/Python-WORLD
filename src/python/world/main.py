@@ -41,14 +41,17 @@ class World(object):
 
 
 
-    def encode(self, x: np.ndarray, fs: int, f0_method: str='dio') -> dict:
+    def encode(self, x: np.ndarray, fs: int, f0_method: str='dio', f0_floor: int=71, f0_ceil: int=800, channels_in_octave: int=2, target_fs: int=4000, frame_period: int=5, allowed_range: float=0.1) -> dict:
         if f0_method == 'dio':
-            source = dio(x, fs)
+            source = dio(x, fs,
+                         f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs, frame_period=frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
         elif f0_method == 'havest':
-            source = havest(x, fs)
+            source = havest(x, fs, 
+                            f0_floor=f0_floor, f0_ceil=f0_ceil, frame_period=frame_period)
         else:
-            source = dio(x, fs)
+            source = dio(x, fs,
+                         f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs, frame_period=frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
         filter = cheaptrick(x, fs, source)
         source = d4c(x, fs, source)
