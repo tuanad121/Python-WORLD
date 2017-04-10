@@ -4,44 +4,71 @@ from scipy.io.wavfile import read as wavread
 from matplotlib import pyplot as plt
 
 # local imports
-from dio import dio
-from stonemask import stonemask
-from havest import havest
-from cheaptrick import cheaptrick
-from d4c import d4c
-from synthesis import synthesis
+from .dio import dio
+from .stonemask import stonemask
+from .havest import havest
+from .cheaptrick import cheaptrick
+from .d4c import d4c
+from .synthesis import synthesis
 
 # compare to vocoder.py
 
 
 class World(object):
-    def get_f0(self,  x: np.ndarray, fs: int, f0_method: str='dio') -> tuple:
+    def get_f0(self, fs: int,  x: np.ndarray, f0_method: str='dio', f0_floor: int=71, f0_ceil: int=800, channels_in_octave: int=2, target_fs: int=4000, frame_period: int=5) -> tuple:
+        '''
+
+        :param fs: sample frequency
+        :param x: signal
+        :param f0_method: f0 extraction method: dio, havest
+        :param f0_floor: smallest f0
+        :param f0_ceil: largest f0
+        :param channels_in_octave:
+        :param target_fs: downsampled frequency for f0 extraction
+        :param frame_period: in ms
+        :return:
+        '''
         if f0_method == 'dio':
-            source = dio(x, fs)
+            source = dio(x, fs, f0_floor, f0_ceil, channels_in_octave, target_fs, frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
         elif f0_method == 'havest':
-            source = havest(x, fs)
+            source = havest(x, fs, f0_floor, f0_ceil, frame_period)
         else:
             raise Exception
-        return source['temporal_positions'], source['f0'] # or a dict
+        return source['temporal_positions'], source['f0'], source['vuv'] # or a dict
 
-    def get_spectrum(self, x: np.ndarray, fs: int, f0_method: str='dio') -> dict:
+    def get_spectrum(self, fs: int, x: np.ndarray, f0_method: str='dio', f0_floor: int=71, f0_ceil: int=800, channels_in_octave: int=2, target_fs: int=4000, frame_period: int=5) -> dict:
         if f0_method == 'dio':
-            source = dio(x, fs)
+            source = dio(x, fs, f0_floor, f0_ceil, channels_in_octave, target_fs, frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
         elif f0_method == 'havest':
-            source = havest(x, fs)
+            source = havest(x, fs, f0_floor, f0_ceil, frame_period)
         else:
             raise Exception
         filter = cheaptrick(x, fs, source)
         return {'time': source['temporal_positions'],
-                'fs': source['fs'],
+                'fs': fs,
                 'ps spectrogram': filter['ps spectrogram'],
-                'world magnitude spectrogram': filter['spectrogram']}
+                'spectrogram': filter['spectrogram']}
 
 
 
-    def encode(self, x: np.ndarray, fs: int, f0_method: str='dio', f0_floor: int=71, f0_ceil: int=800, channels_in_octave: int=2, target_fs: int=4000, frame_period: int=5, allowed_range: float=0.1) -> dict:
+    def encode(self, fs: int, x: np.ndarray, f0_method: str='dio', f0_floor: int=71, f0_ceil: int=800, channels_in_octave: int=2, target_fs: int=4000, frame_period: int=5, allowed_range: float=0.1) -> dict:
+        '''
+        encode speech to excitation signal, f0, spectrogram
+
+        :param fs: sample frequency
+        :param x: signal
+        :param f0_method: f0 extraction method: dio, havest
+        :param f0_floor: smallest f0
+        :param f0_ceil: largest f0
+        :param channels_in_octave:
+        :param target_fs: downsampled frequency for f0 extraction
+        :param frame_period: in ms
+        :param allowed_range:
+        :return:
+        '''
+
         if f0_method == 'dio':
             source = dio(x, fs,
                          f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs, frame_period=frame_period)

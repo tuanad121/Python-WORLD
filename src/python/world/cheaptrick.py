@@ -19,15 +19,15 @@ def cheaptrick(x, fs, source_object, q1=-0.15):
     '''
     f0_low_limit = 71
     default_f0 = 500
-    fft_size = 2 ** m.ceil(m.log(3 * fs / f0_low_limit + 1, 2))
+    fft_size = 2 ** np.ceil(np.log2(3 * fs / f0_low_limit + 1))
 
     f0_low_limit = fs * 3.0 / (fft_size - 3.0)
     temporal_positions = source_object['temporal_positions']
     f0_sequence = source_object['f0']
     f0_sequence[source_object['vuv'] == 0] = default_f0
     
-    spectrogram = np.zeros([fft_size // 2 + 1, len(f0_sequence)])
-    pitch_syn_spectrogram = 1j * np.zeros([fft_size, len(f0_sequence)])
+    spectrogram = np.zeros([int(fft_size // 2) + 1, len(f0_sequence)])
+    pitch_syn_spectrogram = 1j * np.zeros([int(fft_size), len(f0_sequence)])
     for i in range(len(f0_sequence)):
         if f0_sequence[i] < f0_low_limit:
             f0_sequence[i] = default_f0
@@ -66,7 +66,7 @@ def get_power_spectrum(waveform, fs, fft_size, f0):
     power_spectrum[frequency_axis < f0] =\
         low_frequency_replica[frequency_axis[:len(low_frequency_replica)] < f0] + power_spectrum[frequency_axis < f0]
     
-    power_spectrum[-1:fft_size // 2: -1] = power_spectrum[1: fft_size // 2]
+    power_spectrum[-1:int(fft_size // 2): -1] = power_spectrum[1: int(fft_size // 2)]
     return power_spectrum, pitch_syn_spectrum
 
 
@@ -86,7 +86,7 @@ def calculate_windowed_waveform(x, fs, f0, temporal_position):
     #  wave segments and set of windows preparation
     segment = x[safe_index - 1]
     time_axis = base_index / fs / 1.5
-    window = 0.5 * np.cos(m.pi * time_axis * f0) + 0.5
+    window = 0.5 * np.cos(np.pi * time_axis * f0) + 0.5
     window /= np.sqrt(np.sum(window ** 2))
     waveform = segment * window - window * np.mean(segment * window) / np.mean(window)
     return waveform
@@ -129,18 +129,18 @@ def smoothing_with_recovery(smoothed_spectrum, f0, fs, fft_size, q1):
         '''    
     quefrency_axis = np.arange(fft_size) / fs
     # smoothing liftering function: l_s(T)
-    smoothing_lifter = np.r_[1, np.sin(m.pi * f0 * quefrency_axis[1:]) / (m.pi * f0 * quefrency_axis[1:])]
-    smoothing_lifter[fft_size // 2 + 1:] =\
+    smoothing_lifter = np.r_[1, np.sin(np.pi * f0 * quefrency_axis[1:]) / (np.pi * f0 * quefrency_axis[1:])]
+    smoothing_lifter[int(fft_size // 2) + 1:] =\
         smoothing_lifter[round_matlab(fft_size / 2) - 1 : 0 : -1]
     # liftering function for spectral recovery: l_q(T)
     compensation_lifter =\
-        (1 - 2 * q1) + 2 * q1 * np.cos(2 * m.pi * quefrency_axis * f0)
-    compensation_lifter[fft_size // 2 + 1 : ] =\
-        compensation_lifter[fft_size // 2 - 1: 0 : -1]
+        (1 - 2 * q1) + 2 * q1 * np.cos(2 * np.pi * quefrency_axis * f0)
+    compensation_lifter[int(fft_size // 2) + 1 : ] =\
+        compensation_lifter[int(fft_size // 2) - 1: 0 : -1]
     tandem_cepstrum = np.fft.fft(np.log(smoothed_spectrum))
     tmp_spectral_envelope =\
         np.exp(np.real(np.fft.ifft(tandem_cepstrum * smoothing_lifter * compensation_lifter)))
-    spectral_envelope = tmp_spectral_envelope[: fft_size // 2 + 1]
+    spectral_envelope = tmp_spectral_envelope[: int(fft_size // 2) + 1]
     return spectral_envelope
 
 

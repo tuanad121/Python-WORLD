@@ -123,7 +123,8 @@ def OverlapF0Candidates(f0_candidates, max_candidates):
 
 
 ####################################################################################################
-def RefineCandidates(x, fs, temporal_positions, f0_candidates, f0_floor, f0_ceil):
+def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
+                     f0_candidates: np.ndarray, f0_floor: float, f0_ceil: float) -> tuple:
     new_f0_candidates = copy.deepcopy(f0_candidates)
     f0_candidates_score = f0_candidates * 0
 
@@ -137,7 +138,7 @@ def RefineCandidates(x, fs, temporal_positions, f0_candidates, f0_floor, f0_ceil
 
 
 ####################################################################################################
-def GetRefinedF0(x, fs, current_time, current_f0, f0_floor, f0_ceil):
+def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: float, f0_floor: float, f0_ceil: float) -> tuple:
     half_window_length = np.ceil(3 * fs / current_f0 / 2)
     window_length_in_time = (2 * half_window_length + 1) / fs
     base_time = np.arange(-half_window_length, half_window_length + 1) / fs
@@ -522,7 +523,7 @@ def nuttall(N):
 
 
 #####################################################################################################
-def round_matlab(n):
+def round_matlab(n: float) -> int:
     '''
     this function works as Matlab round() function
     python round function choose the nearest even number to n, which is different from Matlab round function
