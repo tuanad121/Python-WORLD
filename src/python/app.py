@@ -41,13 +41,13 @@ if __name__ == '__main__':
         dat = vocoder.warp_spectrum(dat, 0.8)
     # synthesis
     dat = vocoder.decode(dat)
-    import simpleaudio as sa
-    snd = sa.play_buffer((dat['out'] * 2 ** 15).astype(np.int16), 1, 2, fs)
+    #import simpleaudio as sa
+    #snd = sa.play_buffer((dat['out'] * 2 ** 15).astype(np.int16), 1, 2, fs)
     if 1:
         # draw smt
         vocoder.draw(x, dat)
     #snd.wait_done()
-    
+
 
 #if 0: # profiling
     #import cProfile

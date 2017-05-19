@@ -127,7 +127,6 @@ def get_raw_event(boundary_f0, fs, y_spectrum, y_length, temporal_positions, f0_
     low_pass_filter = nuttall(half_filter_length * 4)
     index_bias = low_pass_filter.argmax()
     spectrum_low_pass_filter = np.fft.fft(low_pass_filter, len(y_spectrum))
-    # TODO: something wrong with ifft
     filtered_signal = np.real(np.fft.ifft(spectrum_low_pass_filter * y_spectrum))
     #from scipy import fftpack
     #filtered_signal = np.real(fftpack.ifft(spectrum_low_pass_filter * y_spectrum))

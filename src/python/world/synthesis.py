@@ -7,7 +7,7 @@ from scipy import signal
 #build-in imports
 from decimal import Decimal, ROUND_HALF_UP
 import sys
-from .fftfilt import fftfilt
+from fftfilt import fftfilt
 
 import cython
 #@cython.boundscheck(False)

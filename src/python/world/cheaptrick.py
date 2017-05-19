@@ -19,7 +19,7 @@ def cheaptrick(x, fs, source_object, q1=-0.15):
     '''
     f0_low_limit = 71
     default_f0 = 500
-    fft_size = 2 ** np.ceil(np.log2(3 * fs / f0_low_limit + 1))
+    fft_size = int(2 ** np.ceil(np.log2(3 * fs / f0_low_limit + 1)))
 
     f0_low_limit = fs * 3.0 / (fft_size - 3.0)
     temporal_positions = source_object['temporal_positions']
