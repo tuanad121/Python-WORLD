@@ -7,7 +7,7 @@ from scipy import signal
 #build-in imports
 from decimal import Decimal, ROUND_HALF_UP
 import sys
-from fftfilt import fftfilt
+#from .fftfilt import fftfilt
 
 import cython
 #@cython.boundscheck(False)
@@ -76,11 +76,12 @@ def synthesis(source_object, filter_object):
             tmp_complex_cepstrum[0] = tmp_cepstrum[0]
 
             #  TODO: possible speed up via rfft?
-            #tmp_cepstrum = np.fft.rfft(np.log(np.abs(periodic_spectrum)) / 2)
-            #tmp_complex_cepstrum[latter_index.astype(int) - 1] = tmp_cepstrum * 2
-            #tmp_complex_cepstrum[0] = tmp_cepstrum[0]
 
             response = np.fft.fftshift(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum))).real)
+            dc_remover = signal.hanning(len(response) + 2)[1:-1]
+            dc_remover = dc_remover / np.sum(dc_remover)
+            dc_remover = dc_remover * -np.sum(response)
+            response += dc_remover
             y[output_buffer_index.astype(int) - 1] += response * np.sqrt(max(1, noise_size))
             tmp_aperiodic_spectrum = spectrum_slice * aperiodic_slice
         else:
@@ -153,4 +154,73 @@ def get_spectral_parameters(temporal_positions, temporal_position_index,
             #                       amplitude_random[:, ceil_index].reshape(-1, 1)])) \
             #(max(t1, min(t2, pulse_locations)))
     
-    return spectrum_slice, periodic_slice, aperiodic_slice    
+    return spectrum_slice, periodic_slice, aperiodic_slice
+
+###############################
+def nextpow2(x):
+    """Return the first integer N such that 2**N >= abs(x)"""
+
+    return np.ceil(np.log2(abs(x)))
+
+######################################
+def fftfilt(b, x, *n):
+    """Filter the signal x with the FIR filter described by the
+    coefficients in b using the overlap-add method. If the FFT
+    length n is not specified, it and the overlap-add block length
+    are selected so as to minimize the computational cost of
+    the filtering operation."""
+
+    N_x = len(x)
+    N_b = len(b)
+
+    # Determine the FFT length to use:
+    if len(n):
+
+        # Use the specified FFT length (rounded up to the nearest
+        # power of 2), provided that it is no less than the filter
+        # length:
+        n = n[0]
+        if n != int(n) or n <= 0:
+            raise ValueError('n must be a nonnegative integer')
+        if n < N_b:
+            n = N_b
+        N_fft = 2**nextpow2(n)
+    else:
+
+        if N_x > N_b:
+
+            # When the filter length is smaller than the signal,
+            # choose the FFT length and block size that minimize the
+            # FLOPS cost. Since the cost for a length-N FFT is
+            # (N/2)*log2(N) and the filtering operation of each block
+            # involves 2 FFT operations and N multiplications, the
+            # cost of the overlap-add method for 1 length-N block is
+            # N*(1+log2(N)). For the sake of efficiency, only FFT
+            # lengths that are powers of 2 are considered:
+            N = 2**np.arange(np.ceil(np.log2(N_b)),np.floor(np.log2(N_x)))
+            cost = np.ceil(N_x/(N-N_b+1))*N*(np.log2(N)+1)
+            N_fft = N[np.argmin(cost)]
+
+        else:
+
+            # When the filter length is at least as long as the signal,
+            # filter the signal using a single block:
+            N_fft = 2**nextpow2(N_b+N_x-1)
+
+    N_fft = int(N_fft)
+
+    # Compute the block length:
+    L = int(N_fft - N_b + 1)
+
+    # Compute the transform of the filter:
+    H = np.fft.fft(b,N_fft)
+
+    y = np.zeros(N_x,float)
+    i = 0
+    while i <= N_x:
+        il = min([i+L,N_x])
+        k = min([i+N_fft,N_x])
+        yt = np.fft.ifft(np.fft.fft(x[i:il],N_fft)*H,N_fft).real # Overlap..
+        y[i:k] = y[i:k] + yt[:k-i]            # and add
+        i += L
+    return y

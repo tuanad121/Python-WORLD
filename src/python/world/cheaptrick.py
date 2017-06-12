@@ -1,7 +1,7 @@
 #build-in imports
 import math as m
 from decimal import Decimal, ROUND_HALF_UP
-
+import sys
 #3rd party imports
 import numpy as np
 from scipy.interpolate import interp1d
@@ -107,6 +107,7 @@ def linear_smoothing(power_spectrum, f0, fs, fft_size):
     low_levels = interp1H(double_frequency_axis + fs / fft_size / 2, double_segment, center_frequency - f0 / 3)
     high_levels = interp1H(double_frequency_axis + fs / fft_size / 2, double_segment, center_frequency + f0 / 3)
     smoothed_spectrum = (high_levels - low_levels) * 1.5 / f0
+    smoothed_spectrum += np.abs(np.random.rand(len(smoothed_spectrum))) * sys.float_info.epsilon
     return smoothed_spectrum
 
 
