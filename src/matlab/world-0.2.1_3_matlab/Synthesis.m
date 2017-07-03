@@ -10,6 +10,7 @@ function y = Synthesis(source_object, filter_object)
 %   y : synthesized waveform
 %
 % 2016/12/28: Refactoring
+% 2017/05/20: DC removal was fixed.
 
 vuv = source_object.vuv;
 spectrogram = filter_object.spectrogram;
@@ -60,6 +61,11 @@ for i = 1 : length(pulse_locations_index)
     tmp_complex_cepstrum(1) = tmp_cepstrum(1);
     
     response = fftshift(real(ifft(exp(ifft(tmp_complex_cepstrum)))));
+    dc_remover = hanning(length(response));
+    dc_remover = dc_remover / sum(dc_remover);
+    dc_remover = dc_remover * -sum(response);
+    response = response + dc_remover;
+    
     y(output_buffer_index) =...
       y(output_buffer_index) + response * sqrt(max(1, noise_size));
     tmp_aperiodic_spectrum = spectrum_slice .* aperiodic_slice;

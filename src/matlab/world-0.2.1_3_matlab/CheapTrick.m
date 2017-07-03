@@ -23,6 +23,7 @@ function spectrum_paramter = CheapTrick(x, fs, source_object, option)
 % 2016/12/28: Refactoring (default value of q1 was modified. -0.09 -> -0.15)
 % 2017/01/02: A parameter fft_size is controllable.
 % 2017/01/29: A bug was fixed.
+% 2017/05/20: A safeguard was added.
 
 % set default parameters
 f0_low_limit = 71;
@@ -109,6 +110,8 @@ high_levels = interp1H(double_frequency_axis + fs / fft_size / 2,...
   double_segment, center_frequency + f0 / 3);
 
 smoothed_spectrum = (high_levels - low_levels) * 1.5 / f0;
+smoothed_spectrum =...
+  smoothed_spectrum + abs(randn(length(smoothed_spectrum), 1)) * eps;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This is the imprementation of a matlab function
