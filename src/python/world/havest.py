@@ -29,20 +29,15 @@ def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
 
     raw_f0_candidates = CalculateCandidates(len(basic_temporal_positions), boundary_f0_list, len(y),
                                             basic_temporal_positions, actual_fs, y_spectrum, f0_floor, f0_ceil)
-    print('finish calculate candidates')
     f0_candidates, number_of_candidates = DetectCandidates(raw_f0_candidates)
-    print('finish dectect candidates')
     f0_candidates = OverlapF0Candidates(f0_candidates, number_of_candidates)
-    print('finish overlap candidates')
     f0_candidates, f0_candidates_score = RefineCandidates(y, actual_fs,
                                                           basic_temporal_positions, f0_candidates, f0_floor, f0_ceil)
-    print('finish refine candidates')
     f0_candidates, f0_candidates_score = RemoveUnreliableCandidates(f0_candidates, f0_candidates_score)
 
     connected_f0, vuv = FixF0Contour(f0_candidates, f0_candidates_score)
     smoothed_f0 = SmoothF0(connected_f0)
     temporal_positions = np.arange(0, len(x) / fs, frame_period / 1000)
-    print('haha')
     return {
         'temporal_positions': temporal_positions,
         'f0': smoothed_f0[np.minimum(len(smoothed_f0) - 1, np.array([round_matlab(elm) for elm in temporal_positions * 1000]))],
@@ -53,7 +48,7 @@ def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
 ############################################################################################
 def CalculateDownsampledSignal(x, fs, target_fs):
     decimation_ratio = round_matlab(fs / target_fs)
-    offset = np.ceil(140 / decimation_ratio) * decimation_ratio
+    offset = int(np.ceil(140 / decimation_ratio) * decimation_ratio)
     x = np.append(np.append(np.ones(offset) * x[0], x), np.ones(offset) * x[-1])
 
     if fs < target_fs:
@@ -294,7 +289,7 @@ def FixStep1(f0_base, allowed_range):
         if f0_base[i] == 0:
             continue
         reference_f0 = f0_base[i - 1] * 2 - f0_base[i - 2]
-        if np.abs((f0_base[i] - reference_f0) / reference_f0) > allowed_range and \
+        if np.abs((f0_base[i] - reference_f0) / (reference_f0  + float_info.epsilon)) > allowed_range and \
                         np.abs((f0_base[i] - f0_base[i - 1]) / (f0_base[i - 1] + float_info.epsilon)) > allowed_range:
             f0_step1[i] = 0
     return f0_step1
