@@ -58,6 +58,8 @@ def get_refined_f0(x, fs, current_time, current_f0):
     diff_spectrum = np.fft.fft(x[index - 1] * diff_window, fft_size)
     numerator_i = np.real(spectrum) * np.imag(diff_spectrum) - np.imag(spectrum) * np.real(diff_spectrum)
     power_spectrum = np.abs(spectrum) ** 2
+    from sys import float_info
+    power_spectrum[power_spectrum == 0] = float_info.epsilon
     instantaneous_frequency = fx + numerator_i / power_spectrum * fs / 2 / math.pi
     
     trim_index = np.array([1, 2])
