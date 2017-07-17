@@ -11,11 +11,13 @@ from .cheaptrick import cheaptrick
 from .d4c import d4c
 from .synthesis import synthesis
 
+
 # compare to vocoder.py
 
 
 class World(object):
-    def get_f0(self, fs: int,  x: np.ndarray, f0_method: str='dio', f0_floor: int=71, f0_ceil: int=800, channels_in_octave: int=2, target_fs: int=4000, frame_period: int=5) -> tuple:
+    def get_f0(self, fs: int, x: np.ndarray, f0_method: str = 'dio', f0_floor: int = 71, f0_ceil: int = 800,
+               channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> tuple:
         '''
 
         :param fs: sample frequency
@@ -35,9 +37,10 @@ class World(object):
             source = havest(x, fs, f0_floor, f0_ceil, frame_period)
         else:
             raise Exception
-        return source['temporal_positions'], source['f0'], source['vuv'] # or a dict
+        return source['temporal_positions'], source['f0'], source['vuv']  # or a dict
 
-    def get_spectrum(self, fs: int, x: np.ndarray, f0_method: str='dio', f0_floor: int=71, f0_ceil: int=800, channels_in_octave: int=2, target_fs: int=4000, frame_period: int=5) -> dict:
+    def get_spectrum(self, fs: int, x: np.ndarray, f0_method: str = 'dio', f0_floor: int = 71, f0_ceil: int = 800,
+                     channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> dict:
         if f0_method == 'dio':
             source = dio(x, fs, f0_floor, f0_ceil, channels_in_octave, target_fs, frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
@@ -46,14 +49,25 @@ class World(object):
         else:
             raise Exception
         filter = cheaptrick(x, fs, source)
-        return {'time': source['temporal_positions'],
+        return {'temporal_positions': source['temporal_positions'],
                 'fs': fs,
                 'ps spectrogram': filter['ps spectrogram'],
                 'spectrogram': filter['spectrogram']}
 
+    def encode_w_gvn_f0(self, fs: int, x: np.ndarray, source: dict) -> dict:
+        filter = cheaptrick(x, fs, source)
+        source = d4c(x, fs, source)
+        return {'temporal_positions': source['temporal_positions'],
+                'vuv': source['vuv'],
+                'f0': source['f0'],
+                'fs': fs,
+                'spectrogram': filter['spectrogram'],
+                'aperiodicity': source['aperiodicity'],
+                }
 
-
-    def encode(self, fs: int, x: np.ndarray, f0_method: str='dio', f0_floor: int=71, f0_ceil: int=800, channels_in_octave: int=2, target_fs: int=4000, frame_period: int=5, allowed_range: float=0.1) -> dict:
+    def encode(self, fs: int, x: np.ndarray, f0_method: str = 'dio', f0_floor: int = 71, f0_ceil: int = 800,
+               channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5,
+               allowed_range: float = 0.1) -> dict:
         '''
         encode speech to excitation signal, f0, spectrogram
 
@@ -71,14 +85,16 @@ class World(object):
 
         if f0_method == 'dio':
             source = dio(x, fs,
-                         f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs, frame_period=frame_period)
+                         f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs,
+                         frame_period=frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
         elif f0_method == 'havest':
-            source = havest(x, fs, 
+            source = havest(x, fs,
                             f0_floor=f0_floor, f0_ceil=f0_ceil, frame_period=frame_period)
         else:
             source = dio(x, fs,
-                         f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs, frame_period=frame_period)
+                         f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs,
+                         frame_period=frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
         filter = cheaptrick(x, fs, source)
         source = d4c(x, fs, source)
@@ -107,9 +123,8 @@ class World(object):
 
     def warp_spectrum(self, dat: dict, factor: float) -> dict:
         dat['spectrogram'][:] = np.array([np.interp(np.arange(0, len(s)) ** factor, np.arange(0, len(s)),
-                            s) for s in dat['spectrogram'].T]).T
+                                                    s) for s in dat['spectrogram'].T]).T
         return dat
-
 
     def decode(self, dat: dict) -> dict:
         y = synthesis(dat, dat)
@@ -133,22 +148,20 @@ class World(object):
         ax[1].imshow(20 * np.log10(np.abs(X[:X.shape[0] // 2, :])), cmap=plt.cm.gray_r, origin='lower',
                      extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
         ax[1].set_ylabel('frequency (Hz)')
-        
+
         ax[2].set_title('phase spectrogram')
-        ax[2].imshow(np.diff(np.unwrap(np.angle(X[:X.shape[0] // 2, :]), axis=1), axis=1), cmap=plt.cm.gray_r, origin='lower',
+        ax[2].imshow(np.diff(np.unwrap(np.angle(X[:X.shape[0] // 2, :]), axis=1), axis=1), cmap=plt.cm.gray_r,
+                     origin='lower',
                      extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
         ax[2].set_ylabel('frequency (Hz)')
-        
+
         ax[3].set_title('WORLD spectrogram')
         ax[3].imshow(20 * np.log10(dat['spectrogram']), cmap=plt.cm.gray_r, origin='lower',
                      extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
         ax[3].set_ylabel('frequency (Hz)')
-        
+
         ax[4].set_title('WORLD fundamental frequency')
         ax[4].plot(time, dat['f0'])
         ax[4].set_ylabel('time (s)')
 
         plt.show()
-
-
-
