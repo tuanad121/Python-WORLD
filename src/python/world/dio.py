@@ -26,7 +26,9 @@ def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
 
     Caution: minimum frame_period is 1.
     '''
-    temporal_positions = np.arange(0, np.size(x) / fs, frame_period / 1000) #careful!! check later
+    num_samples = int(1000 * len(x) / fs / frame_period + 1)
+    temporal_positions = np.arange(0, num_samples) * frame_period / 1000
+    #temporal_positions = np.arange(0, np.size(x) / fs, frame_period / 1000) #careful!! check later
     # log2(f0_ceil / f0_floor) = number of octaves
     boundary_f0_list = np.arange(math.ceil(np.log2(f0_ceil / f0_floor) * channels_in_octave)) + 1
     boundary_f0_list = boundary_f0_list / channels_in_octave
