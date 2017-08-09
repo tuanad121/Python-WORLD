@@ -63,6 +63,7 @@ class World(object):
                 'fs': fs,
                 'spectrogram': filter['spectrogram'],
                 'aperiodicity': source['aperiodicity'],
+                'coarse_ap': source['coarse_ap']
                 }
 
     def encode(self, fs: int, x: np.ndarray, f0_method: str = 'dio', f0_floor: int = 71, f0_ceil: int = 800,
