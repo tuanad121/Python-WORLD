@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 # local imports
 from .dio import dio
 from .stonemask import stonemask
-from .havest import havest
+from .harvest import harvest
 from .cheaptrick import cheaptrick
 from .d4c import d4c
 from .synthesis import synthesis
@@ -22,7 +22,7 @@ class World(object):
 
         :param fs: sample frequency
         :param x: signal
-        :param f0_method: f0 extraction method: dio, havest
+        :param f0_method: f0 extraction method: dio, harvest
         :param f0_floor: smallest f0
         :param f0_ceil: largest f0
         :param channels_in_octave:
@@ -33,8 +33,8 @@ class World(object):
         if f0_method == 'dio':
             source = dio(x, fs, f0_floor, f0_ceil, channels_in_octave, target_fs, frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
-        elif f0_method == 'havest':
-            source = havest(x, fs, f0_floor, f0_ceil, frame_period)
+        elif f0_method == 'harvest':
+            source = harvest(x, fs, f0_floor, f0_ceil, frame_period)
         else:
             raise Exception
         return source['temporal_positions'], source['f0'], source['vuv']  # or a dict
@@ -44,8 +44,8 @@ class World(object):
         if f0_method == 'dio':
             source = dio(x, fs, f0_floor, f0_ceil, channels_in_octave, target_fs, frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
-        elif f0_method == 'havest':
-            source = havest(x, fs, f0_floor, f0_ceil, frame_period)
+        elif f0_method == 'harvest':
+            source = harvest(x, fs, f0_floor, f0_ceil, frame_period)
         else:
             raise Exception
         filter = cheaptrick(x, fs, source)
@@ -74,7 +74,7 @@ class World(object):
 
         :param fs: sample frequency
         :param x: signal
-        :param f0_method: f0 extraction method: dio, havest
+        :param f0_method: f0 extraction method: dio, harvest
         :param f0_floor: smallest f0
         :param f0_ceil: largest f0
         :param channels_in_octave:
@@ -89,9 +89,9 @@ class World(object):
                          f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs,
                          frame_period=frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
-        elif f0_method == 'havest':
-            source = havest(x, fs,
-                            f0_floor=f0_floor, f0_ceil=f0_ceil, frame_period=frame_period)
+        elif f0_method == 'harvest':
+            source = harvest(x, fs,
+                             f0_floor=f0_floor, f0_ceil=f0_ceil, frame_period=frame_period)
         else:
             source = dio(x, fs,
                          f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs,

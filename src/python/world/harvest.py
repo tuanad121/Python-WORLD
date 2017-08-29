@@ -9,10 +9,11 @@ from scipy.interpolate import interp1d
 from scipy.signal import lfilter
 from scipy import signal
 
-def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
+def harvest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
     basic_frame_period = 1
     target_fs = 8000
-    basic_temporal_positions = np.arange(0, len(x) / fs, basic_frame_period / 1000 )
+    num_samples = int(1000 * len(x) / fs / basic_frame_period + 1)
+    basic_temporal_positions = np.arange(0, num_samples) * basic_frame_period / 1000
     channels_in_octave = 40
     f0_floor_adjusted = f0_floor * 0.9
     f0_ceil_adjusted = f0_ceil * 1.1
@@ -37,7 +38,8 @@ def havest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
 
     connected_f0, vuv = FixF0Contour(f0_candidates, f0_candidates_score)
     smoothed_f0 = SmoothF0(connected_f0)
-    temporal_positions = np.arange(0, len(x) / fs, frame_period / 1000)
+    num_samples = int(1000 * len(x) / fs / frame_period + 1)
+    temporal_positions = np.arange(0, num_samples) * frame_period / 1000
     return {
         'temporal_positions': temporal_positions,
         'f0': smoothed_f0[np.minimum(len(smoothed_f0) - 1, np.array([round_matlab(elm) for elm in temporal_positions * 1000]))],

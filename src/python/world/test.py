@@ -22,7 +22,7 @@ import unittest
 #from pysig import track
 from dio import dio
 from stonemask import stonemask
-from havest import havest
+from harvest import harvest
 from cheaptrick import cheaptrick
 from d4c import d4c
 from synthesis import synthesis
@@ -51,7 +51,7 @@ class Test(unittest.TestCase):
             x = x_int16 / (2 ** 15 - 1)
             #f0_data = dio(x, fs)
             #f0_data['f0'] = stonemask(x, fs, f0_data['temporal_positions'], f0_data['f0'])
-            f0_data = havest(x, fs)
+            f0_data = harvest(x, fs)
             # extract f0 by matlab
             f0_matlab, _ = call_matlab(elm)
             assert f0_data['f0'].shape[0] == f0_matlab.shape[0], print('{} and {}'.format(len(f0_data['f0']), len(f0_matlab)))
@@ -62,7 +62,7 @@ class Test(unittest.TestCase):
             # extract f0, spectrogram by python
             fs, x_int16 = wavread(elm)
             x = x_int16 / (2 ** 15 - 1)
-            f0_data = havest(x, fs)
+            f0_data = harvest(x, fs)
             filter_object = cheaptrick(x, fs, f0_data)
 
             # extract f0, spectrogram by matlab
