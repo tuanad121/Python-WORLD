@@ -10,6 +10,7 @@ from .harvest import harvest
 from .cheaptrick import cheaptrick
 from .d4c import d4c
 from .synthesis import synthesis
+from .swipe import swipe
 
 
 # compare to vocoder.py
@@ -35,6 +36,8 @@ class World(object):
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
         elif f0_method == 'harvest':
             source = harvest(x, fs, f0_floor, f0_ceil, frame_period)
+        elif f0_method == 'swipe':
+            source = swipe(fs, x, plim=[f0_floor, f0_ceil],sTHR=0.3)
         else:
             raise Exception
         return source['temporal_positions'], source['f0'], source['vuv']  # or a dict
