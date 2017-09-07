@@ -8,6 +8,9 @@ import numpy as np
 from scipy.interpolate import interp1d
 from scipy.signal import lfilter
 from scipy import signal
+import numba
+
+EPS = 2.220446049250313e-16
 
 def harvest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
     basic_frame_period = 1
@@ -57,7 +60,6 @@ def CalculateDownsampledSignal(x, fs, target_fs):
         y = copy.deepcopy(x)
         actual_fs = fs
     else:
-        # TODO: decimate can be troublesome
         y0 = decimate_matlab(x, decimation_ratio, n = 3)
         actual_fs = fs / decimation_ratio
         y = y0[int(offset / decimation_ratio) : int(-offset / decimation_ratio)]
@@ -135,6 +137,7 @@ def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
 
 
 ####################################################################################################
+# @numba.jit((numba.float64[:], numba.float64, numba.float64, numba.float64, numba.float64, numba.float64), nopython=True, cache=True)
 def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: float, f0_floor: float, f0_ceil: float) -> tuple:
     half_window_length = np.ceil(3 * fs / current_f0 / 2)
     window_length_in_time = (2 * half_window_length + 1) / fs
@@ -143,7 +146,7 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     fx = (np.arange(fft_size) / fft_size * fs)
 
     # First-aid treatment
-    index_raw = np.array([round_matlab(elm) for elm in ((current_time + base_time) * fs + 0.001)])
+    index_raw = np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in ((current_time + base_time) * fs + 0.001)])
     index_time = (index_raw - 1) / fs
     window_time = index_time - current_time
     main_window = 0.42 + 0.5 * np.cos(2 * math.pi * window_time / window_length_in_time) +\
@@ -159,7 +162,7 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
 
     number_of_harmonics = min(np.floor(fs / 2 / current_f0), 6) # with safe guard
     harmonic_index = np.arange(1, number_of_harmonics + 1)
-    index_list = np.array([round_matlab(elm) for elm in (current_f0 * fft_size / fs * harmonic_index)]) # check later
+    index_list = np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in (current_f0 * fft_size / fs * harmonic_index)]) # check later
     instantaneous_frequency_list = instantaneous_frequency[index_list]
     amplitude_list = np.sqrt(power_spectrum[index_list])
     refined_f0 = np.sum(amplitude_list * instantaneous_frequency_list) / np.sum(amplitude_list * harmonic_index)
@@ -174,8 +177,8 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
 
 ####################################################################################################
 def RemoveUnreliableCandidates(f0_candidates, f0_candidates_score):
-    new_f0_candidates = copy.deepcopy(f0_candidates)
-    new_f0_candidates_score = copy.deepcopy(f0_candidates_score)
+    new_f0_candidates = np.array(f0_candidates)
+    new_f0_candidates_score = np.array(f0_candidates_score)
     threshold = 0.05
 
     f0_length = f0_candidates.shape[1]
@@ -196,10 +199,10 @@ def RemoveUnreliableCandidates(f0_candidates, f0_candidates_score):
 
 
 ###################################################################################################
+@numba.jit((numba.float64, numba.float64[:], numba.float64), nopython=True, cache=True)  # eager compilation through function signature
 def SelectBestF0(reference_f0, f0_candidates, allowed_range):
     best_f0 = 0
-    best_error = copy.deepcopy(allowed_range)
-
+    best_error = allowed_range
     for i in np.arange(len(f0_candidates)):
         tmp = np.abs(reference_f0 - f0_candidates[i]) / reference_f0
         if tmp > best_error:
@@ -223,13 +226,13 @@ def CalculateRawEvent(boundary_f0, fs, y_spectrum, y_length, temporal_positions,
     filtered_signal = filtered_signal[index_bias + np.arange(y_length)]
 
     # calculate 4 kinds of event
-    negative_zero_cross = ZeroCrossingEngine(filtered_signal, fs)
-    positive_zero_cross = ZeroCrossingEngine(-filtered_signal, fs)
-    peak = ZeroCrossingEngine(np.diff(filtered_signal), fs)
-    dip = ZeroCrossingEngine(-np.diff(filtered_signal), fs)
+    neg_loc, neg_f0 = ZeroCrossingEngine(filtered_signal, fs)
+    pos_loc, pos_f0 = ZeroCrossingEngine(-filtered_signal, fs)
+    peak_loc, peak_f0 = ZeroCrossingEngine(np.diff(filtered_signal), fs)
+    dip_loc, dip_f0 = ZeroCrossingEngine(-np.diff(filtered_signal), fs)
 
-    f0_candidates = GetF0Candidates(negative_zero_cross, positive_zero_cross,
-                                    peak, dip, temporal_positions)
+    f0_candidates = GetF0Candidates(neg_loc, neg_f0, pos_loc, pos_f0,
+                                    peak_loc, peak_f0, dip_loc, dip_f0, temporal_positions)
 
     f0_candidates[f0_candidates > boundary_f0 * 1.1] = 0
     f0_candidates[f0_candidates < boundary_f0 * 0.9] = 0
@@ -241,20 +244,21 @@ def CalculateRawEvent(boundary_f0, fs, y_spectrum, y_length, temporal_positions,
 
 ###################################################################################################
 # negative zero crossing: going from positive to negative
+@numba.jit((numba.float64[:], numba.float64), nopython=True, cache=True)
 def ZeroCrossingEngine(x, fs):
+    y = np.empty_like(x)
+    y[:-1] = x[1:]
+    y[-1] = x[-1]
     negative_going_points = np.arange(1, len(x) + 1) * \
-                            ((np.append(x[1:], x[-1]) * x < 0) * (np.append(x[1:], x[-1]) < x))
+                            ((y * x < 0) * (y < x))
 
     edge_list = negative_going_points[negative_going_points > 0]
 
     fine_edge_list = (edge_list) - x[edge_list - 1] / (x[edge_list] - x[edge_list - 1])
 
-    interval_locations = (fine_edge_list[:np.size(fine_edge_list) - 1] + fine_edge_list[1:]) / 2 / fs
+    interval_locations = (fine_edge_list[:len(fine_edge_list) - 1] + fine_edge_list[1:]) / 2 / fs
     interval_based_f0 = fs / np.diff(fine_edge_list)
-    return {
-        'interval_locations': interval_locations,
-        'interval_based_f0': interval_based_f0
-    }
+    return interval_locations, interval_based_f0
 
 
 ####################################################################################################
@@ -281,9 +285,10 @@ def SearchF0Base(f0_candidates, f0_candidates_score):
 
 ####################################################################################################
 # Step 1: Rapid change of f0 contour is replaced by 0
+@numba.jit((numba.float64[:], numba.float64), nopython=True, cache=True)
 def FixStep1(f0_base, allowed_range):
-    from sys import float_info
-    f0_step1 = copy.copy(f0_base)
+    f0_step1 = np.empty_like(f0_base)
+    f0_step1[:] = f0_base
     f0_step1[0] = 0
     f0_step1[1] = 0
 
@@ -291,8 +296,8 @@ def FixStep1(f0_base, allowed_range):
         if f0_base[i] == 0:
             continue
         reference_f0 = f0_base[i - 1] * 2 - f0_base[i - 2]
-        if np.abs((f0_base[i] - reference_f0) / (reference_f0  + float_info.epsilon)) > allowed_range and \
-                        np.abs((f0_base[i] - f0_base[i - 1]) / (f0_base[i - 1] + float_info.epsilon)) > allowed_range:
+        if np.abs((f0_base[i] - reference_f0) / (reference_f0 + EPS)) > allowed_range and \
+                        np.abs((f0_base[i] - f0_base[i - 1]) / (f0_base[i - 1] + EPS)) > allowed_range:
             f0_step1[i] = 0
     return f0_step1
 
@@ -300,7 +305,8 @@ def FixStep1(f0_base, allowed_range):
 ####################################################################################################
 # Step 2: Voiced sections with a short period are removed
 def FixStep2(f0_step1, voice_range_minimum):
-    f0_step2 = copy.deepcopy(f0_step1)
+    f0_step2 = np.empty_like(f0_step1)
+    f0_step2[:] = f0_step1
     boundary_list = GetBoundaryList(f0_step1)
 
     for i in np.arange(1, len(boundary_list) // 2 + 1):
@@ -344,7 +350,8 @@ def FixStep3(f0_step2, f0_candidates, allowed_range, f0_candidates_score):
 ####################################################################################################
 # Step 4: F0s in short unvoiced section are faked
 def FixStep4(f0_step3, threshold):
-    f0_step4 = copy.deepcopy(f0_step3)
+    f0_step4 = np.empty_like(f0_step3)
+    f0_step4[:] = f0_step3
     boundary_list = GetBoundaryList(f0_step3)
 
     for i in np.arange(1, len(boundary_list) // 2 ):
@@ -451,28 +458,28 @@ def SerachScore(f0, f0_candidates, f0_candidates_score):
 
 
 ####################################################################################################
-def GetF0Candidates(negative_zero_cross, positive_zero_cross, peak, dip, temporal_positions):
+def GetF0Candidates(neg_loc, neg_f0, pos_loc, pos_f0, peak_loc, peak_f0, dip_loc, dip_f0, temporal_positions):
     # test this one
-    usable_channel = max(0, np.size(negative_zero_cross['interval_locations']) - 2) * \
-                     max(0, np.size(positive_zero_cross['interval_locations']) - 2) * \
-                     max(0, np.size(peak['interval_locations']) - 2) * \
-                     max(0, np.size(dip['interval_locations']) - 2)
+    usable_channel = max(0, np.size(neg_loc) - 2) * \
+                     max(0, np.size(pos_loc) - 2) * \
+                     max(0, np.size(peak_loc) - 2) * \
+                     max(0, np.size(dip_f0) - 2)
 
     interpolated_f0_list = np.zeros((4, np.size(temporal_positions)))
 
     if usable_channel > 0:
-        interpolated_f0_list[0, :] = interp1d(negative_zero_cross['interval_locations'],
-                                              negative_zero_cross['interval_based_f0'],
+        interpolated_f0_list[0, :] = interp1d(neg_loc,
+                                              neg_f0,
                                               fill_value='extrapolate')(temporal_positions)
-        interpolated_f0_list[1, :] = interp1d(positive_zero_cross['interval_locations'],
-                                              positive_zero_cross['interval_based_f0'],
+        interpolated_f0_list[1, :] = interp1d(pos_loc,
+                                              pos_f0,
                                               fill_value='extrapolate')(temporal_positions)
 
-        interpolated_f0_list[2, :] = interp1d(peak['interval_locations'],
-                                              peak['interval_based_f0'],
+        interpolated_f0_list[2, :] = interp1d(peak_loc,
+                                              peak_f0,
                                               fill_value='extrapolate')(temporal_positions)
-        interpolated_f0_list[3, :] = interp1d(dip['interval_locations'],
-                                              dip['interval_based_f0'],
+        interpolated_f0_list[3, :] = interp1d(dip_loc,
+                                              dip_f0,
                                               fill_value='extrapolate')(temporal_positions)
 
         interpolated_f0 = np.mean(interpolated_f0_list, axis=0)
@@ -520,6 +527,7 @@ def nuttall(N):
 
 
 #####################################################################################################
+
 def round_matlab(n: float) -> int:
     '''
     this function works as Matlab round() function
@@ -561,7 +569,7 @@ def decimate_matlab(x, q, n=None, axis=-1):
 
     system = signal.dlti(*signal.cheby1(n, 0.05, 0.8 / q))
 
-    zero_phase = True
+    #zero_phase = True
 
     y = signal.filtfilt(system.num, system.den, x, axis=axis, padlen=3 * (max(len(system.den), len(system.num)) - 1))
 

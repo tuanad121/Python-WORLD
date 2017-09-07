@@ -42,7 +42,7 @@ def cheaptrick(x, fs, source_object, q1=-0.15):
 ################################################################################################################
 def estimate_one_slice(x, fs, current_f0, current_position, fft_size, q1):
     '''
-    Calculate spectrum using CheapTrick algorithm consisting 3 steps
+    Calculating spectrum using CheapTrick algorithm consisting of 3 steps
     '''
     # First step: F0-adaptive windowing
     waveform = calculate_windowed_waveform(x, fs, current_f0, current_position)
@@ -117,7 +117,9 @@ def interp1H(x, y, xi):
     xi = np.maximum(x[0], np.minimum(x[-1], xi))
     xi_base = np.floor((xi - x[0]) / delta_x)
     xi_fraction = (xi - x[0]) / delta_x - xi_base
-    delta_y = np.append(np.diff(y), 0)
+    delta_y = np.empty_like(y)
+    delta_y[:-1] = np.diff(y)
+    delta_y[-1] = 0
     yi = y[xi_base.astype(int)] + delta_y[xi_base.astype(int)] * xi_fraction
     return yi
 
@@ -130,9 +132,11 @@ def smoothing_with_recovery(smoothed_spectrum, f0, fs, fft_size, q1):
         '''    
     quefrency_axis = np.arange(fft_size) / fs
     # smoothing liftering function: l_s(T)
-    smoothing_lifter = np.r_[1, np.sin(np.pi * f0 * quefrency_axis[1:]) / (np.pi * f0 * quefrency_axis[1:])]
+    smoothing_lifter = np.empty_like(quefrency_axis)
+    smoothing_lifter[0] = 1
+    smoothing_lifter[1:] = np.sin(np.pi * f0 * quefrency_axis[1:]) / (np.pi * f0 * quefrency_axis[1:])
     smoothing_lifter[int(fft_size // 2) + 1:] =\
-        smoothing_lifter[round_matlab(fft_size / 2) - 1 : 0 : -1]
+        smoothing_lifter[int(fft_size // 2) - 1 : 0 : -1]
     # liftering function for spectral recovery: l_q(T)
     compensation_lifter =\
         (1 - 2 * q1) + 2 * q1 * np.cos(2 * np.pi * quefrency_axis * f0)

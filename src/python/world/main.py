@@ -44,6 +44,16 @@ class World(object):
 
     def get_spectrum(self, fs: int, x: np.ndarray, f0_method: str = 'dio', f0_floor: int = 71, f0_ceil: int = 800,
                      channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> dict:
+        '''
+        This function extract pitch-synchronous WORLD spectrogram
+        :param fs: sampling frequency
+        :param x: signal (in float)
+        :param f0_method: dio, harvest, swipe
+        :param f0_floor: f0 min
+        :param f0_ceil: f0 max
+        :param frame_period: frame shift
+        :return:
+        '''
         if f0_method == 'dio':
             source = dio(x, fs, f0_floor, f0_ceil, channels_in_octave, target_fs, frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
@@ -58,6 +68,13 @@ class World(object):
                 'spectrogram': filter['spectrogram']}
 
     def encode_w_gvn_f0(self, fs: int, x: np.ndarray, source: dict) -> dict:
+        '''
+        This function extract WORLD spectrogram and aperiodicity with given F0 contour
+        :param fs: sampling rate
+        :param x: signal
+        :param source: a dictionary contains time, f0 contour and voice/unvoice
+        :return: a dictionary contains WORLD's components
+        '''
         filter = cheaptrick(x, fs, source)
         source = d4c(x, fs, source)
         return {'temporal_positions': source['temporal_positions'],
@@ -84,7 +101,7 @@ class World(object):
         :param target_fs: downsampled frequency for f0 extraction
         :param frame_period: in ms
         :param allowed_range:
-        :return:
+        :return: a dictionary contains WORLD components
         '''
 
         if f0_method == 'dio':
@@ -113,6 +130,11 @@ class World(object):
                 }
 
     def scale_pitch(self, dat: dict, factor: int) -> dict:
+        '''
+        :param dat: WORLD components (F0, spectrogram, aperiodicity)
+        :param factor: scaling factor
+        :return: scaled pitch.
+        '''
         dat['f0'] *= factor
         return dat
 
@@ -122,6 +144,11 @@ class World(object):
         return dat
 
     def scale_duration(self, dat: dict, factor: float) -> dict:
+        '''
+        :param dat:  WORLD components (F0, spectrogram, aperiodicity)
+        :param factor: scaling factor
+        :return: scaled event-time to speech up or slow down the speech
+        '''
         dat['temporal_positions'] *= factor
         return dat
 
@@ -131,11 +158,19 @@ class World(object):
         return dat
 
     def decode(self, dat: dict) -> dict:
+        '''
+        This function combine WORLD components (F0, spectrogram, and aperiodicity) to make sound signal
+        :param dat: contains WORLD components
+        :return: a dictionary contains synthesized speech and WORLD components
+        '''
         y = synthesis(dat, dat)
         dat['out'] = y
         return dat
 
     def draw(self, x: np.ndarray, dat: dict):
+        '''
+        An example of visualize WORLD components, original signal, synthesized signal
+        '''
         fs = dat['fs']
         time = dat['temporal_positions']
         y = dat['out']
