@@ -137,7 +137,7 @@ def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
 
 
 ####################################################################################################
-# @numba.jit((numba.float64[:], numba.float64, numba.float64, numba.float64, numba.float64, numba.float64), nopython=True, cache=True)
+@numba.jit((numba.float64[:], numba.float64, numba.float64, numba.float64, numba.float64, numba.float64), nopython=True, cache=True)
 def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: float, f0_floor: float, f0_ceil: float) -> tuple:
     half_window_length = np.ceil(3 * fs / current_f0 / 2)
     window_length_in_time = (2 * half_window_length + 1) / fs
@@ -146,7 +146,11 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     fx = (np.arange(fft_size) / fft_size * fs)
 
     # First-aid treatment
-    index_raw = np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in ((current_time + base_time) * fs + 0.001)])
+    if 0:
+        index_raw = np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in ((current_time + base_time) * fs + 0.001)])
+    else:
+        index_raw = (current_time + base_time) * fs
+        #index_raw = np.array((current_time + base_time) * fs, dtype=np.int)
     index_time = (index_raw - 1) / fs
     window_time = index_time - current_time
     main_window = 0.42 + 0.5 * np.cos(2 * math.pi * window_time / window_length_in_time) +\
@@ -162,7 +166,10 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
 
     number_of_harmonics = min(np.floor(fs / 2 / current_f0), 6) # with safe guard
     harmonic_index = np.arange(1, number_of_harmonics + 1)
-    index_list = np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in (current_f0 * fft_size / fs * harmonic_index)]) # check later
+    if 0:
+        index_list = np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in (current_f0 * fft_size / fs * harmonic_index)]) # check later
+    else:
+        index_list = (current_f0 * fft_size / fs * harmonic_index).astype(int)
     instantaneous_frequency_list = instantaneous_frequency[index_list]
     amplitude_list = np.sqrt(power_spectrum[index_list])
     refined_f0 = np.sum(amplitude_list * instantaneous_frequency_list) / np.sum(amplitude_list * harmonic_index)
