@@ -6,9 +6,8 @@ import copy
 # 3rd-party imports
 from scipy.interpolate import interp1d
 from scipy import signal
-
+import numba
 import numpy as np
-
 
 def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, frame_period=5, allowed_range=0.1):
     '''
@@ -59,7 +58,8 @@ def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
 def get_downsampled_signal(x, fs, target_fs):
     decimation_ratio = int(Decimal(fs / target_fs).quantize(0, ROUND_HALF_UP))
     if fs < target_fs:
-        y = copy.deepcopy(x)
+        y = np.empty_like(x)
+        y[:] = x
         actual_fs = fs
     else: 
         # decimate can be troublesome
@@ -137,12 +137,13 @@ def get_raw_event(boundary_f0, fs, y_spectrum, y_length, temporal_positions, f0_
     filtered_signal = filtered_signal[index_bias + np.arange(1, y_length + 1)] 
     
     # calculate 4 kinds of event
-    negative_zero_cross = zero_crossing_engine(filtered_signal, fs)
-    positive_zero_cross = zero_crossing_engine(-filtered_signal, fs)
-    peak = zero_crossing_engine(np.diff(filtered_signal), fs)
-    dip = zero_crossing_engine(-np.diff(filtered_signal), fs)
+    neg_loc, neg_f0 = ZeroCrossingEngine(filtered_signal, fs)
+    pos_loc, pos_f0 = ZeroCrossingEngine(-filtered_signal, fs)
+    peak_loc, peak_f0 = ZeroCrossingEngine(np.diff(filtered_signal), fs)
+    dip_loc, dip_f0 = ZeroCrossingEngine(-np.diff(filtered_signal), fs)
     
-    f0_candidate, f0_deviations = get_f0_candidates(negative_zero_cross, positive_zero_cross, peak, dip, temporal_positions)
+    f0_candidate, f0_deviations = get_f0_candidates(neg_loc, neg_f0, pos_loc, pos_f0,
+                      peak_loc, peak_f0, dip_loc, dip_f0, temporal_positions)
     
     # remove untrustful candidates
     f0_candidate[f0_candidate > boundary_f0] = 0
@@ -155,29 +156,30 @@ def get_raw_event(boundary_f0, fs, y_spectrum, y_length, temporal_positions, f0_
 
 
 ##########################################################################################################
-def get_f0_candidates(negative_zero_cross, positive_zero_cross, peak, dip, temporal_positions):
+def get_f0_candidates(neg_loc, neg_f0, pos_loc, pos_f0,
+                      peak_loc, peak_f0, dip_loc, dip_f0, temporal_positions):
     #test this one 
-    usable_channel = max(0, np.size(negative_zero_cross['interval_locations']) - 2) *\
-        max(0, np.size(positive_zero_cross['interval_locations']) - 2) *\
-        max(0, np.size(peak['interval_locations']) - 2) *\
-        max(0, np.size(dip['interval_locations']) - 2) 
+    usable_channel = max(0, np.size(neg_loc) - 2) * \
+                     max(0, np.size(pos_loc) - 2) * \
+                     max(0, np.size(peak_loc) - 2) * \
+                     max(0, np.size(dip_f0) - 2)
     
     interpolated_f0_list = np.zeros((4, np.size(temporal_positions)))
     
     if usable_channel > 0:
-        interpolated_f0_list[0,:] = interp1d(negative_zero_cross['interval_locations'],
-                                             negative_zero_cross['interval_based_f0'],
-                                             fill_value='extrapolate')(temporal_positions)
-        interpolated_f0_list[1,:] = interp1d(positive_zero_cross['interval_locations'],
-                                             positive_zero_cross['interval_based_f0'],
-                                             fill_value='extrapolate')(temporal_positions)
-        
-        interpolated_f0_list[2,:] = interp1d(peak['interval_locations'],
-                                             peak['interval_based_f0'],
-                                             fill_value='extrapolate')(temporal_positions)
-        interpolated_f0_list[3,:] = interp1d(dip['interval_locations'],
-                                             dip['interval_based_f0'],
-                                             fill_value='extrapolate')(temporal_positions)
+        interpolated_f0_list[0, :] = interp1d(neg_loc,
+                                              neg_f0,
+                                              fill_value='extrapolate')(temporal_positions)
+        interpolated_f0_list[1, :] = interp1d(pos_loc,
+                                              pos_f0,
+                                              fill_value='extrapolate')(temporal_positions)
+
+        interpolated_f0_list[2, :] = interp1d(peak_loc,
+                                              peak_f0,
+                                              fill_value='extrapolate')(temporal_positions)
+        interpolated_f0_list[3, :] = interp1d(dip_loc,
+                                              dip_f0,
+                                              fill_value='extrapolate')(temporal_positions)
         interpolated_f0 = np.mean(interpolated_f0_list, axis=0)
         f0_deviations = np.std(interpolated_f0_list, axis=0, ddof=1)
     else:
@@ -187,21 +189,22 @@ def get_f0_candidates(negative_zero_cross, positive_zero_cross, peak, dip, tempo
 
 
 ##########################################################################################################
-#negative zero crossing: going from positive to negative
-def zero_crossing_engine(x, fs):
-    negative_going_points = np.arange(1, len(x) + 1) *\
-        ((np.append(x[1:], x[-1]) * x < 0) * (np.append(x[1:], x[-1]) < x))
-    
+# negative zero crossing: going from positive to negative
+@numba.jit((numba.float64[:], numba.float64), nopython=True, cache=True)
+def ZeroCrossingEngine(x, fs):
+    y = np.empty_like(x)
+    y[:-1] = x[1:]
+    y[-1] = x[-1]
+    negative_going_points = np.arange(1, len(x) + 1) * \
+                            ((y * x < 0) * (y < x))
+
     edge_list = negative_going_points[negative_going_points > 0]
-    
+
     fine_edge_list = (edge_list) - x[edge_list - 1] / (x[edge_list] - x[edge_list - 1])
-    
-    interval_locations = (fine_edge_list[:np.size(fine_edge_list) - 1] + fine_edge_list[1:]) / 2 / fs
+
+    interval_locations = (fine_edge_list[:len(fine_edge_list) - 1] + fine_edge_list[1:]) / 2 / fs
     interval_based_f0 = fs / np.diff(fine_edge_list)
-    return {
-        'interval_locations':interval_locations, 
-        'interval_based_f0':interval_based_f0
-            }
+    return interval_locations, interval_based_f0
 
 
 ##########################################################################################################
@@ -262,7 +265,8 @@ def fix_step2(f0_step1, voice_range_minimum):
 ##########################################################################################################
 # Step3: short-time voiced period (under voice_range_minimum) is replaced by 0
 def fix_step3(f0_step2, f0_candidates, section_list, allowed_range):
-    f0_step3 = np.copy(f0_step2)
+    f0_step3 = np.empty_like(f0_step2)
+    f0_step3[:] = f0_step2
     for i in np.arange(section_list.shape[0]):
         if i == section_list.shape[0] - 1:
             limit = len(f0_step3) - 1
