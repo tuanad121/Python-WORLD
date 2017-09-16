@@ -1,6 +1,4 @@
 #build-in imports
-import math as m
-from decimal import Decimal, ROUND_HALF_UP
 import sys
 #3rd party imports
 import numpy as np
@@ -43,6 +41,11 @@ def cheaptrick(x, fs, source_object, q1=-0.15):
 def estimate_one_slice(x, fs, current_f0, current_position, fft_size, q1):
     '''
     Calculating spectrum using CheapTrick algorithm consisting of 3 steps
+    x: signal
+    fs: sampling rate
+    current_f0: current F0 value
+    current_position: position of current frame in second
+    fft_size: length of Fourier length
     '''
     # First step: F0-adaptive windowing
     waveform = calculate_windowed_waveform(x, fs, current_f0, current_position)
@@ -76,12 +79,14 @@ def calculate_windowed_waveform(x, fs, f0, temporal_position):
     First step: F0-adaptive windowing
     Design a window function with basic idea of pitch-synchronous analysis.
     A Hanning window with length 3*T0 is used.
-    Using the window makes over all power of the periodic signal temporally stable 
+    Using the window makes over all power of the periodic signal temporally stable
+
     '''
-    half_window_length = round_matlab(1.5 * fs / f0)
+    half_window_length = int(1.5 * fs / f0 + 0.5)
     base_index = np.arange(-half_window_length, half_window_length + 1)
-    index = round_matlab(temporal_position * fs + 0.001) + 1.0 + base_index
-    safe_index = np.minimum(len(x), np.maximum(1, np.array([round_matlab(elm) for elm in index])))
+    index = int(temporal_position * fs + 0.501) + 1.0 + base_index
+    safe_index = np.minimum(len(x), np.maximum(1, round_matlab(index)))
+    safe_index = np.array(safe_index, dtype=np.int)
     
     #  wave segments and set of windows preparation
     segment = x[safe_index - 1]
@@ -125,7 +130,6 @@ def interp1H(x, y, xi):
 
 
 ####################################################################################################################
-#import numba
 #@numba.jit((numba.float64[:,:], numba.float64, numba.float64, numba.float64, numba.float64), nopython=True, cache=True)
 def smoothing_with_recovery(smoothed_spectrum, f0, fs, fft_size, q1):
     '''
@@ -152,11 +156,15 @@ def smoothing_with_recovery(smoothed_spectrum, f0, fs, fft_size, q1):
 
 
 #####################################################################################################################
-def round_matlab(n):
+def round_matlab(x: np.array) -> int:
     '''
     this function works as Matlab round() function
     python round function choose the nearest even number to n, which is different from Matlab round function
     :param n: input number
     :return: rounded n
     '''
-    return int(Decimal(n).quantize(0, ROUND_HALF_UP))
+    #return int(Decimal(n).quantize(0, ROUND_HALF_UP))
+    y = np.array(x)
+    y[x > 0] = np.array(y[x > 0] + 0.5, dtype=np.int)
+    y[x <= 0] = np.array(y[x <= 0] - 0.5, dtype=np.int)
+    return y

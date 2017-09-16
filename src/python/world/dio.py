@@ -1,7 +1,5 @@
 # built-in imports
 import math
-from decimal import Decimal, ROUND_HALF_UP
-import copy
 
 # 3rd-party imports
 from scipy.interpolate import interp1d
@@ -56,7 +54,7 @@ def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
 
 ##########################################################################################################
 def get_downsampled_signal(x, fs, target_fs):
-    decimation_ratio = int(Decimal(fs / target_fs).quantize(0, ROUND_HALF_UP))
+    decimation_ratio = int(fs / target_fs + 0.5)
     if fs < target_fs:
         y = np.empty_like(x)
         y[:] = x
@@ -74,10 +72,9 @@ def get_spectrum(x, fs, lowest_f0):
     '''
         First step: Low-pass filtering with different cut-off frequencies
     '''    
-    fft_size = 2 ** math.ceil(math.log(np.size(x) + \
-                                        int(Decimal(fs / lowest_f0 / 2).quantize(0, ROUND_HALF_UP)) * 4,2)) 
+    fft_size = 2 ** math.ceil(math.log(np.size(x) + int(fs / lowest_f0 / 2 + 0.5) * 4,2))
     #low-cut filtering
-    cutoff_in_sample = int(Decimal(fs / 50).quantize(0, ROUND_HALF_UP))
+    cutoff_in_sample = int(fs / 50 + 0.5)
     #low_cut_filter = np.hanning(2 * cutoff_in_sample + 1)
     low_cut_filter = signal.hanning(2 * cutoff_in_sample + 3)[1:-1] # remove zeros at starting and ending
     low_cut_filter = -low_cut_filter / np.sum(low_cut_filter)
@@ -127,7 +124,7 @@ def sort_candidates(f0_candidate_map, stability_map):
 
 ##########################################################################################################
 def get_raw_event(boundary_f0, fs, y_spectrum, y_length, temporal_positions, f0_floor, f0_ceil):
-    half_filter_length = int(Decimal(fs / boundary_f0 / 2).quantize(0, ROUND_HALF_UP))
+    half_filter_length = int(fs / boundary_f0 / 2 + 0.5)
     low_pass_filter = nuttall(half_filter_length * 4)
     index_bias = low_pass_filter.argmax()
     spectrum_low_pass_filter = np.fft.fft(low_pass_filter, len(y_spectrum))
@@ -220,7 +217,7 @@ def fix_f0_contour(f0_candidates, frame_period, f0_floor, allowed_range):
 # if abs((f0(n) - f0(n+1)) / f0(n)) exceeds this value,
 # f0(n) is not reliable.
 # F0 is continuous at least voice_range_minimum (sample)
-    voice_range_minimum =int(Decimal(1 / (frame_period / 1000) / f0_floor).quantize(0, ROUND_HALF_UP)) * 2 + 1
+    voice_range_minimum =int(1 / (frame_period / 1000) / f0_floor + 0.5) * 2 + 1
     f0_step1 = fix_step1(f0_candidates, voice_range_minimum, allowed_range)
     f0_step2 = fix_step2(f0_step1, voice_range_minimum)
     section_list = count_voiced_sections(f0_step2)
