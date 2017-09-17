@@ -1,7 +1,5 @@
 # buil-in imports
 import math
-from decimal import Decimal, ROUND_HALF_UP
-import copy
 
 # 3rd imports
 import numpy as np
@@ -90,15 +88,15 @@ def d4c_love_train(x, fs, current_f0, current_position, threshold):
 ###################################################################################
 def get_windowed_waveform(x, fs, current_f0, current_position, half_length, window_type): # 1: hanning, 2: blackman
     # prepare internal variables
-    half_window_length = round_matlab(half_length * fs / current_f0)
+    half_window_length = int(half_length * fs / current_f0 + 0.5)
     base_index = np.arange(-half_window_length, half_window_length + 1)
-    index = round_matlab(current_position * fs + 0.001) + 1.0 + base_index
-    safe_index = np.minimum(len(x), np.maximum(1, np.array([round_matlab(elm) for elm in index])))
-
+    index = int(current_position * fs + 0.501) + 1.0 + base_index
+    safe_index = np.minimum(len(x), np.maximum(1, round_matlab(index)))
+    safe_index = np.array(safe_index, dtype=np.int)
     #  wave segments and set of windows preparation
     segment = x[safe_index - 1]
     time_axis = base_index / fs / half_length + \
-                (current_position * fs - int(Decimal(current_position * fs).quantize(0, ROUND_HALF_UP))) / fs
+                (current_position * fs - int(current_position * fs + 0.5)) / fs
         
     if window_type == 1: # hanning
         window = 0.5 * np.cos(np.pi * time_axis * current_f0) + 0.5
@@ -190,7 +188,7 @@ def get_coarse_aperiodicity(group_delay, fs, fft_size, frequency_interval, numbe
         Third step:
         estimation of band-aperiodicity
         '''    
-    boundary = round_matlab(fft_size / len(window) * 8)
+    boundary = int(fft_size / len(window) * 8 + 0.5)
     
     half_window_length = int(np.floor(len(window) / 2))
     coarse_aperiodicity = np.zeros(number_of_aperiodicity)
@@ -242,11 +240,15 @@ def nuttall(N):
 
 
 #####################################################################################################
-def round_matlab(n):
+def round_matlab(x: np.array) -> int:
     '''
     this function works as Matlab round() function
     python round function choose the nearest even number to n, which is different from Matlab round function
     :param n: input number
     :return: rounded n
     '''
-    return int(Decimal(n).quantize(0, ROUND_HALF_UP))
+    #return int(Decimal(n).quantize(0, ROUND_HALF_UP))
+    y = np.array(x)
+    y[x > 0] = np.array(y[x > 0] + 0.5, dtype=np.int)
+    y[x <= 0] = np.array(y[x <= 0] - 0.5, dtype=np.int)
+    return y
