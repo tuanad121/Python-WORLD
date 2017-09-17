@@ -139,7 +139,7 @@ def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
 
 
 ####################################################################################################
-# @numba.jit((numba.float64[:], numba.float64, numba.float64, numba.float64, numba.float64, numba.float64), nopython=True, cache=True)
+#@numba.jit((numba.float64[:], numba.float64, numba.float64, numba.float64, numba.float64, numba.float64), nopython=True, cache=True)
 def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: float, f0_floor: float, f0_ceil: float) -> tuple:
     half_window_length = np.ceil(3 * fs / current_f0 / 2)
     window_length_in_time = (2 * half_window_length + 1) / fs
@@ -165,6 +165,7 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
 
     number_of_harmonics = min(np.floor(fs / 2 / current_f0), 6) # with safe guard
     harmonic_index = np.arange(1, number_of_harmonics + 1)
+
     index_list = round_matlab(current_f0 * fft_size / fs * harmonic_index) # check later
     index_list = np.array(index_list, dtype=np.int)
     instantaneous_frequency_list = instantaneous_frequency[index_list]

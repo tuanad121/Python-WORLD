@@ -34,7 +34,10 @@ def dio(x, fs, f0_floor=71, f0_ceil=800, channels_in_octave=2, target_fs=4000, f
     boundary_f0_list = f0_floor * (2.0 ** boundary_f0_list)
     
     #down sample to target Hz
-    y, actual_fs = get_downsampled_signal(x, fs, target_fs)
+    #y, actual_fs = get_downsampled_signal(x, fs, target_fs)
+    y = decimate(x, int(fs / target_fs))
+    actual_fs = target_fs
+
     y_spectrum = get_spectrum(y, actual_fs, f0_floor)
     raw_f0_candidate, raw_stability = get_candidate_and_stability(np.size(temporal_positions),
                                                                   boundary_f0_list, np.size(y),
@@ -75,7 +78,6 @@ def get_spectrum(x, fs, lowest_f0):
     fft_size = 2 ** math.ceil(math.log(np.size(x) + int(fs / lowest_f0 / 2 + 0.5) * 4,2))
     #low-cut filtering
     cutoff_in_sample = int(fs / 50 + 0.5)
-    #low_cut_filter = np.hanning(2 * cutoff_in_sample + 1)
     low_cut_filter = signal.hanning(2 * cutoff_in_sample + 3)[1:-1] # remove zeros at starting and ending
     low_cut_filter = -low_cut_filter / np.sum(low_cut_filter)
     low_cut_filter[cutoff_in_sample] = low_cut_filter[cutoff_in_sample] + 1
@@ -129,8 +131,6 @@ def get_raw_event(boundary_f0, fs, y_spectrum, y_length, temporal_positions, f0_
     index_bias = low_pass_filter.argmax()
     spectrum_low_pass_filter = np.fft.fft(low_pass_filter, len(y_spectrum))
     filtered_signal = np.real(np.fft.ifft(spectrum_low_pass_filter * y_spectrum))
-    #from scipy import fftpack
-    #filtered_signal = np.real(fftpack.ifft(spectrum_low_pass_filter * y_spectrum))
     filtered_signal = filtered_signal[index_bias + np.arange(1, y_length + 1)] 
     
     # calculate 4 kinds of event
@@ -353,3 +353,125 @@ def decimate_matlab(x, q, n=None, axis=-1):
     n_out = np.ceil(nd / q)
     n_beg = int(q - (q * n_out - nd))
     return y[n_beg - 1::q]
+
+########################################
+
+def FilterForDecimate(x,r):
+    '''
+    Lowpass filter coefficients
+    '''
+    a = np.zeros(3)
+    b = np.zeros(2)
+    if r==11:
+        a[0] = 2.450743295230728
+        a[1] = -2.06794904601978
+        a[2] = 0.59574774438332101
+        b[0] = 0.0026822508007163792
+        b[1] = 0.0080467524021491377
+    elif r==12:
+        a[0] = 2.4981398605924205
+        a[1] = -2.1368928194784025
+        a[2] = 0.62187513816221485
+        b[0] = 0.0021097275904709001
+        b[1] = 0.0063291827714127002
+    elif r==10:
+        a[0] = 2.3936475118069387
+        a[1] = -1.9873904075111861
+        a[2] = 0.5658879979027055
+        b[0] = 0.0034818622251927556
+        b[1] = 0.010445586675578267
+    elif r==9:
+        a[0] = 2.3236003491759578
+        a[1] = -1.8921545617463598
+        a[2] = 0.53148928133729068
+        b[0] = 0.0046331164041389372
+        b[1] = 0.013899349212416812
+    elif r==8:
+        a[0] = 2.2357462340187593
+        a[1] = -1.7780899984041358
+        a[2] = 0.49152555365968692
+        b[0] = 0.0063522763407111993
+        b[1] = 0.019056829022133598
+    elif r==7:
+        a[0] = 2.1225239019534703
+        a[1] = -1.6395144861046302
+        a[2] = 0.44469707800587366
+        b[0] = 0.0090366882681608418
+        b[1] = 0.027110064804482525
+    elif r==6:
+        a[0] = 1.9715352749512141
+        a[1] = -1.4686795689225347
+        a[2] = 0.3893908434965701
+        b[0] = 0.013469181309343825
+        b[1] = 0.040407543928031475
+    elif r==5:
+        a[0] = 1.7610939654280557
+        a[1] = -1.2554914843859768
+        a[2] = 0.3237186507788215
+        b[0] = 0.021334858522387423
+        b[1] = 0.06400457556716227
+    elif r==4:
+        a[0] = 1.4499664446880227
+        a[1] = -0.98943497080950582
+        a[2] = 0.24578252340690215
+        b[0] = 0.036710750339322612
+        b[1] = 0.11013225101796784
+    elif r==3:
+        a[0] = 0.95039378983237421
+        a[1] = -0.67429146741526791
+        a[2] = 0.15412211621346475
+        b[0] = 0.071221945171178636
+        b[1] = 0.21366583551353591
+    elif r==2:
+        a[0] = 0.041156734567757189
+        a[1] = -0.42599112459189636
+        a[2] = 0.041037215479961225
+        b[0] = 0.16797464681802227
+        b[1] = 0.50392394045406674
+    else:
+        a[0] = 0.0
+        a[1] = 0.0
+        a[2] = 0.0
+        b[0] = 0.0
+        b[1] = 0.0
+    # Filtering on time domain
+    w = np.zeros(3)
+    y_prime = np.zeros_like(x)
+    for i in range(len(x)):
+        wt = x[i] + a[0] * w[0] + a[1] * w[1] + a[2] * w[2]
+        y_prime[i] = b[0] * wt + b[1] * w[0] + b[1] * w[1] + b[0] * w[2]
+        w[2] = w[1]
+        w[1] = w[0]
+        w[0] = wt
+    return y_prime
+
+###################
+
+
+def decimate(x,r):
+    kNFact = 9
+    x_length = len(x)
+    y = []
+    tmp1 = np.zeros(x_length + kNFact * 2)
+    tmp2 = np.zeros(x_length + kNFact * 2)
+
+    for i in range(kNFact):
+        tmp1[i] = 2 * x[0] - x[kNFact - i]
+    for i in range(kNFact, kNFact + x_length):
+        tmp1[i] = x[i - kNFact]
+    for i in range(kNFact + x_length, 2 * kNFact + x_length):
+        tmp1[i] = 2 * x[-1] - x[x_length - 2 - (i - (kNFact + x_length))]
+
+    tmp2 = FilterForDecimate(tmp1, r)
+    for i in range(2 * kNFact + x_length):
+        tmp1[i] = tmp2[2 * kNFact + x_length - i - 1]
+    tmp2 = FilterForDecimate(tmp1, r)
+    for i in range(2 * kNFact + x_length):
+        tmp1[i] = tmp2[2 * kNFact + x_length - i - 1]
+    nout = np.ceil(x_length / r + 1)
+    nbeg = int(r - r * nout + x_length)
+    count = 0
+    for i in range(nbeg, x_length + kNFact, r):
+        y.append(tmp1[i + kNFact - 1])
+        count += 1
+    return np.array(y)
