@@ -9,7 +9,7 @@ from scipy.io.wavfile import write
 from world import main
 
 if __name__ == '__main__':   
-    name='01'
+    name='test-mwm'
     fs, x_int16 = wavread('{}.wav'.format(name))
     x = x_int16 / (2 ** 15 - 1)
     vocoder = main.World()
@@ -30,5 +30,5 @@ if __name__ == '__main__':
     snd = sa.play_buffer((dat['out'] * 2 ** 15).astype(np.int16), 1, 2, fs)
     snd.wait_done()
     if 0:
-        # draw smt
+        # visualize
         vocoder.draw(x, dat)

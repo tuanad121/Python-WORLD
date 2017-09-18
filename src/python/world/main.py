@@ -131,6 +131,7 @@ class World(object):
 
     def scale_pitch(self, dat: dict, factor: int) -> dict:
         '''
+        the function does pitch scaling
         :param dat: WORLD components (F0, spectrogram, aperiodicity)
         :param factor: scaling factor
         :return: scaled pitch.
@@ -145,6 +146,7 @@ class World(object):
 
     def scale_duration(self, dat: dict, factor: float) -> dict:
         '''
+        the function does duration scaling
         :param dat:  WORLD components (F0, spectrogram, aperiodicity)
         :param factor: scaling factor
         :return: scaled event-time to speech up or slow down the speech
