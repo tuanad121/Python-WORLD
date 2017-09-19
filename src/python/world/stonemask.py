@@ -3,6 +3,7 @@ import math
 
 #3rd-party imports
 import numpy as np
+import numba
 
 def stonemask(x, fs, temporal_positions, f0):
     '''
@@ -74,15 +75,15 @@ def get_refined_f0(x, fs, current_time, current_f0):
 
     return refined_f0
 
-def round_matlab(x: np.array) -> int:
+@numba.jit((numba.float64[:],), nopython=True, cache=True)
+def round_matlab(x: np.ndarray) -> np.ndarray:
     '''
-    this function works as Matlab round() function
-    python round function choose the nearest even number to n, which is different from Matlab round function
-    :param n: input number
-    :return: rounded n
+    round function works as matlab round
+    :param x: input vector
+    :return: rounded vector
     '''
     #return int(Decimal(n).quantize(0, ROUND_HALF_UP))
-    y = np.array(x)
-    y[x > 0] = np.array(y[x > 0] + 0.5, dtype=np.int)
-    y[x <= 0] = np.array(y[x <= 0] - 0.5, dtype=np.int)
+    y = x.copy()
+    y[x > 0] += 0.5
+    y[x <= 0] -= 0.5
     return y

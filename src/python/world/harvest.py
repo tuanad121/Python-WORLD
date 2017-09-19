@@ -124,36 +124,39 @@ def OverlapF0Candidates(f0_candidates, max_candidates):
 
 
 ####################################################################################################
-import multiprocessing
+import multiprocessing as mp
 
 def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
                      f0_candidates: np.ndarray, f0_floor: float, f0_ceil: float) -> tuple:
     new_f0_candidates = copy.deepcopy(f0_candidates)
     f0_candidates_score = f0_candidates * 0
 
+    # for i in np.arange(len(temporal_positions)):
+    #     for j in np.arange(f0_candidates.shape[0]):
+    #          # tmp_f0 = f0_candidates[j, i]
+    #         # if tmp_f0 == 0:
+    #         #     continue
+    #         new_f0_candidates[j, i], f0_candidates_score[j, i] = GetRefinedF0(x, fs, temporal_positions[i], f0_candidates[j, i], f0_floor, f0_ceil)
 
-    for i in np.arange(len(temporal_positions)):
-        for j in np.arange(f0_candidates.shape[0]):
-            tmp_f0 = f0_candidates[j, i]
-            if tmp_f0 == 0:
-                continue
-            new_f0_candidates[j, i], f0_candidates_score[j, i] = GetRefinedF0(x, fs, temporal_positions[i], tmp_f0, f0_floor, f0_ceil)
+    for j in np.arange(f0_candidates.shape[0]):
+        frame_candidate_data = []
+        for i in np.arange(len(temporal_positions)):
+            frame_candidate_data.append([x, fs, temporal_positions[i], f0_candidates[j, i], f0_floor, f0_ceil])
+        with mp.Pool(mp.cpu_count()) as pool:
+            results = np.array(pool.starmap(GetRefinedF0, frame_candidate_data))
+        new_f0_candidates[j,:] = np.array([elm[0] for elm in results])
+        f0_candidates_score[j,:] = np.array([elm[1] for elm in results])
 
-
-    # results = map(GetRefinedF0)
-    # new_f0_candidates = np.array([out[0] for out in results])
-    # f0_candidates_score = [out[1] for out in results]
-    #
     return new_f0_candidates, f0_candidates_score
 
 
+#################################################################################################
 @numba.jit((numba.float64[:],), nopython=True, cache=True)
 def round_matlab(x: np.ndarray) -> np.ndarray:
     '''
-    this function works as Matlab round() function
-    python round function choose the nearest even number, which is different from Matlab round function
+    round function works as matlab round
     :param x: input vector
-    :return: rounded x
+    :return: rounded vector
     '''
     #return int(Decimal(n).quantize(0, ROUND_HALF_UP))
     y = x.copy()
@@ -161,11 +164,11 @@ def round_matlab(x: np.ndarray) -> np.ndarray:
     y[x <= 0] -= 0.5
     return y
 
-
-
 ####################################################################################################
 #@numba.jit((numba.float64[:], numba.float64, numba.float64, numba.float64, numba.float64, numba.float64), nopython=True, cache=True)
 def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: float, f0_floor: float, f0_ceil: float) -> tuple:
+    if current_f0 == 0:
+        return 0, 0
     half_window_length = np.ceil(3 * fs / current_f0 / 2)
     window_length_in_time = (2 * half_window_length + 1) / fs
     base_time = np.arange(-half_window_length, half_window_length + 1) / fs
@@ -567,9 +570,6 @@ def nuttall(N):
     coefs = np.array([0.355768, -0.487396, 0.144232, -0.012604])
     window = coefs @ np.cos(np.matrix([0,1,2,3]).T @ t)
     return np.squeeze(np.asarray(window))
-
-
-#####################################################################################################
 
 
 #######################################################################################################
