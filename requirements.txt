@@ -1,0 +1,5 @@
+numpy
+spicy
+matplotlib
+simpleaudio
+numba

@@ -17,7 +17,7 @@ from .swipe import swipe
 
 
 class World(object):
-    def get_f0(self, fs: int, x: np.ndarray, f0_method: str = 'dio', f0_floor: int = 71, f0_ceil: int = 800,
+    def get_f0(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> tuple:
         '''
 
@@ -42,7 +42,7 @@ class World(object):
             raise Exception
         return source['temporal_positions'], source['f0'], source['vuv']  # or a dict
 
-    def get_spectrum(self, fs: int, x: np.ndarray, f0_method: str = 'dio', f0_floor: int = 71, f0_ceil: int = 800,
+    def get_spectrum(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                      channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> dict:
         '''
         This function extract pitch-synchronous WORLD spectrogram
@@ -86,7 +86,7 @@ class World(object):
                 'coarse_ap': source['coarse_ap']
                 }
 
-    def encode(self, fs: int, x: np.ndarray, f0_method: str = 'dio', f0_floor: int = 71, f0_ceil: int = 800,
+    def encode(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5,
                allowed_range: float = 0.1) -> dict:
         '''
@@ -131,6 +131,7 @@ class World(object):
 
     def scale_pitch(self, dat: dict, factor: int) -> dict:
         '''
+        the function does pitch scaling
         :param dat: WORLD components (F0, spectrogram, aperiodicity)
         :param factor: scaling factor
         :return: scaled pitch.
@@ -145,6 +146,7 @@ class World(object):
 
     def scale_duration(self, dat: dict, factor: float) -> dict:
         '''
+        the function does duration scaling
         :param dat:  WORLD components (F0, spectrogram, aperiodicity)
         :param factor: scaling factor
         :return: scaled event-time to speech up or slow down the speech

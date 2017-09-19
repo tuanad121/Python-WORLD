@@ -28,7 +28,7 @@ def harvest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
 
     # down - sampling to target_fs Hz
     [y, actual_fs] = CalculateDownsampledSignal(x, fs, target_fs)
-    fft_size = int(2 ** np.ceil(np.log2(len(y) + round_matlab(fs / f0_floor_adjusted * 4) + 1)))
+    fft_size = int(2 ** np.ceil(np.log2(len(y) + int(fs / f0_floor_adjusted * 4 + 0.5) + 1)))
     y_spectrum = np.fft.fft(y, fft_size)
 
     raw_f0_candidates = CalculateCandidates(len(basic_temporal_positions), boundary_f0_list, len(y),
@@ -43,16 +43,18 @@ def harvest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
     smoothed_f0 = SmoothF0(connected_f0)
     num_samples = int(1000 * len(x) / fs / frame_period + 1)
     temporal_positions = np.arange(0, num_samples) * frame_period / 1000
+    temporal_positions_sampe = np.minimum(len(smoothed_f0) - 1, round_matlab(temporal_positions * 1000))
+    temporal_positions_sampe = np.array(temporal_positions_sampe, dtype=np.int)
     return {
         'temporal_positions': temporal_positions,
-        'f0': smoothed_f0[np.minimum(len(smoothed_f0) - 1, np.array([round_matlab(elm) for elm in temporal_positions * 1000]))],
-        'vuv': vuv[np.minimum(len(smoothed_f0) - 1, np.array([round_matlab(elm) for elm in temporal_positions * 1000]))]
+        'f0': smoothed_f0[temporal_positions_sampe],
+        'vuv': vuv[temporal_positions_sampe]
     }
 
 
 ############################################################################################
 def CalculateDownsampledSignal(x, fs, target_fs):
-    decimation_ratio = round_matlab(fs / target_fs)
+    decimation_ratio = int(fs / target_fs + 0.5)
     offset = int(np.ceil(140 / decimation_ratio) * decimation_ratio)
     x = np.append(np.append(np.ones(offset) * x[0], x), np.ones(offset) * x[-1])
 
@@ -83,7 +85,7 @@ def CalculateCandidates(number_of_frames,
 ####################################################################################################
 def DetectCandidates(raw_f0_candidates):
     number_of_channels, number_of_frames = raw_f0_candidates.shape
-    f0_candidates = np.zeros((round_matlab(number_of_channels / 10), number_of_frames))
+    f0_candidates = np.zeros((int(number_of_channels / 10 + 0.5), number_of_frames))
     number_of_candidates = 0
     threshold = 10
 
@@ -137,7 +139,7 @@ def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
 
 
 ####################################################################################################
-@numba.jit((numba.float64[:], numba.float64, numba.float64, numba.float64, numba.float64, numba.float64), nopython=True, cache=True)
+#@numba.jit((numba.float64[:], numba.float64, numba.float64, numba.float64, numba.float64, numba.float64), nopython=True, cache=True)
 def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: float, f0_floor: float, f0_ceil: float) -> tuple:
     half_window_length = np.ceil(3 * fs / current_f0 / 2)
     window_length_in_time = (2 * half_window_length + 1) / fs
@@ -146,18 +148,15 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     fx = (np.arange(fft_size) / fft_size * fs)
 
     # First-aid treatment
-    if 0:
-        index_raw = np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in ((current_time + base_time) * fs + 0.001)])
-    else:
-        index_raw = (current_time + base_time) * fs
-        #index_raw = np.array((current_time + base_time) * fs, dtype=np.int)
+    index_raw = round_matlab((current_time + base_time) * fs + 0.001)
+
     index_time = (index_raw - 1) / fs
     window_time = index_time - current_time
     main_window = 0.42 + 0.5 * np.cos(2 * math.pi * window_time / window_length_in_time) +\
                   0.08 * np.cos(4 * math.pi * window_time / window_length_in_time)
     diff_window = -(np.diff(np.append(0, main_window)) + np.diff(np.append(main_window, 0))) / 2
-
     index = np.maximum(1, np.minimum(len(x), index_raw)) - 1
+    index = np.array(index, dtype=np.int)
     spectrum = np.fft.fft(x[index] * main_window, fft_size)
     diff_spectrum = np.fft.fft(x[index] * diff_window, fft_size)
     numerator_i = np.real(spectrum) * np.imag(diff_spectrum) - np.imag(spectrum) * np.real(diff_spectrum)
@@ -166,10 +165,9 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
 
     number_of_harmonics = min(np.floor(fs / 2 / current_f0), 6) # with safe guard
     harmonic_index = np.arange(1, number_of_harmonics + 1)
-    if 0:
-        index_list = np.array([int(Decimal(elm).quantize(0, ROUND_HALF_UP)) for elm in (current_f0 * fft_size / fs * harmonic_index)]) # check later
-    else:
-        index_list = (current_f0 * fft_size / fs * harmonic_index).astype(int)
+
+    index_list = round_matlab(current_f0 * fft_size / fs * harmonic_index) # check later
+    index_list = np.array(index_list, dtype=np.int)
     instantaneous_frequency_list = instantaneous_frequency[index_list]
     amplitude_list = np.sqrt(power_spectrum[index_list])
     refined_f0 = np.sum(amplitude_list * instantaneous_frequency_list) / np.sum(amplitude_list * harmonic_index)
@@ -535,14 +533,18 @@ def nuttall(N):
 
 #####################################################################################################
 
-def round_matlab(n: float) -> int:
+def round_matlab(x: np.array) -> int:
     '''
     this function works as Matlab round() function
     python round function choose the nearest even number to n, which is different from Matlab round function
     :param n: input number
     :return: rounded n
     '''
-    return int(Decimal(n).quantize(0, ROUND_HALF_UP))
+    #return int(Decimal(n).quantize(0, ROUND_HALF_UP))
+    y = np.array(x)
+    y[x > 0] = np.array(y[x > 0] + 0.5, dtype=np.int)
+    y[x <= 0] = np.array(y[x <= 0] - 0.5, dtype=np.int)
+    return y
 
 
 #######################################################################################################
