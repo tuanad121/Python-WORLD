@@ -124,10 +124,13 @@ def OverlapF0Candidates(f0_candidates, max_candidates):
 
 
 ####################################################################################################
+import multiprocessing
+
 def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
                      f0_candidates: np.ndarray, f0_floor: float, f0_ceil: float) -> tuple:
     new_f0_candidates = copy.deepcopy(f0_candidates)
     f0_candidates_score = f0_candidates * 0
+
 
     for i in np.arange(len(temporal_positions)):
         for j in np.arange(f0_candidates.shape[0]):
@@ -135,7 +138,29 @@ def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
             if tmp_f0 == 0:
                 continue
             new_f0_candidates[j, i], f0_candidates_score[j, i] = GetRefinedF0(x, fs, temporal_positions[i], tmp_f0, f0_floor, f0_ceil)
+
+
+    # results = map(GetRefinedF0)
+    # new_f0_candidates = np.array([out[0] for out in results])
+    # f0_candidates_score = [out[1] for out in results]
+    #
     return new_f0_candidates, f0_candidates_score
+
+
+@numba.jit((numba.float64[:],), nopython=True, cache=True)
+def round_matlab(x: np.ndarray) -> np.ndarray:
+    '''
+    this function works as Matlab round() function
+    python round function choose the nearest even number, which is different from Matlab round function
+    :param x: input vector
+    :return: rounded x
+    '''
+    #return int(Decimal(n).quantize(0, ROUND_HALF_UP))
+    y = x.copy()
+    y[x > 0] += 0.5
+    y[x <= 0] -= 0.5
+    return y
+
 
 
 ####################################################################################################
@@ -154,9 +179,22 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     window_time = index_time - current_time
     main_window = 0.42 + 0.5 * np.cos(2 * math.pi * window_time / window_length_in_time) +\
                   0.08 * np.cos(4 * math.pi * window_time / window_length_in_time)
-    diff_window = -(np.diff(np.append(0, main_window)) + np.diff(np.append(main_window, 0))) / 2
-    index = np.maximum(1, np.minimum(len(x), index_raw)) - 1
-    index = np.array(index, dtype=np.int)
+
+    # new method
+    diff_window = np.empty_like(main_window)
+    diff_window[0] = - main_window[1] / 2
+    diff_window[-1] = main_window[-2] / 2
+    diff_window[1:-1] = - (np.diff(main_window[1:]) + np.diff(main_window[:-1])) / 2
+
+    if 0: # old method, remove me
+        diff_window2 = -(np.diff(np.r_[0, main_window]) +
+                    np.diff(np.r_[main_window, 0])) / 2
+        assert np.allclose(diff_window, diff_window2)
+
+    index = (np.maximum(1, np.minimum(len(x), index_raw)) - 1).astype(np.int32)
+
+    #index = np.array(index, dtype=np.int)
+
     spectrum = np.fft.fft(x[index] * main_window, fft_size)
     diff_spectrum = np.fft.fft(x[index] * diff_window, fft_size)
     numerator_i = np.real(spectrum) * np.imag(diff_spectrum) - np.imag(spectrum) * np.real(diff_spectrum)
@@ -532,19 +570,6 @@ def nuttall(N):
 
 
 #####################################################################################################
-
-def round_matlab(x: np.array) -> int:
-    '''
-    this function works as Matlab round() function
-    python round function choose the nearest even number to n, which is different from Matlab round function
-    :param n: input number
-    :return: rounded n
-    '''
-    #return int(Decimal(n).quantize(0, ROUND_HALF_UP))
-    y = np.array(x)
-    y[x > 0] = np.array(y[x > 0] + 0.5, dtype=np.int)
-    y[x <= 0] = np.array(y[x <= 0] - 0.5, dtype=np.int)
-    return y
 
 
 #######################################################################################################
