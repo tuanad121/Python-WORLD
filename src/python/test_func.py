@@ -8,6 +8,10 @@ import pyworld as pw
 #
 # print(timeit.timeit("pw.harvest(x,fs)", globals=globals(), number=1))
 import numpy as np
-a = np.arange(20)
-a = np.reshape(a, [4,5])
-print(a)
+from matplotlib import pyplot as plt
+
+a = np.genfromtxt('normalF0.txt')
+b = np.genfromtxt('parallF02.txt')
+
+plt.plot(a-b)
+plt.show()

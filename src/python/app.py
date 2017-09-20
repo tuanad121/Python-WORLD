@@ -19,7 +19,6 @@ if __name__ == '__main__':
         print(timeit.timeit("vocoder.encode(fs, x, f0_method='harvest')", globals=globals(), number=1))
     else:
         dat = vocoder.encode(fs, x, f0_method='harvest')
-        np.savetxt('parallF0.txt',dat['f0'])
         if 0:
             # global pitch scaling
             dat = vocoder.scale_pitch(dat, 2)
