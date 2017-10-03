@@ -146,15 +146,13 @@ def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
     #         results = np.array(pool.starmap(GetRefinedF0, frame_candidate_data))
     #     new_f0_candidates[j,:] = np.array([elm[0] for elm in results])
     #     f0_candidates_score[j,:] = np.array([elm[1] for elm in results])
-    frame_candidate_data = []
-    for j in np.arange(f0_candidates.shape[0]):
-        for i in np.arange(len(temporal_positions)):
-            frame_candidate_data.append([x, fs, temporal_positions[i], f0_candidates[j, i], f0_floor, f0_ceil])
+    frame_candidate_data = [(x, fs, temporal_positions[i], f0_candidates[j, i], f0_floor, f0_ceil)
+                            for j in np.arange(f0_candidates.shape[0])
+                            for i in np.arange(len(temporal_positions))]
     with mp.Pool(mp.cpu_count()) as pool:
         results = np.array(pool.starmap(GetRefinedF0, frame_candidate_data))
-    new_f0_candidates = np.reshape([elm[0] for elm in results], [f0_candidates.shape[0], len(temporal_positions)])
-    f0_candidates_score = np.reshape([elm[1] for elm in results], [f0_candidates.shape[0], len(temporal_positions)])
-
+    new_f0_candidates = np.reshape(results[:,0], [f0_candidates.shape[0], len(temporal_positions)])
+    f0_candidates_score = np.reshape(results[:,1], [f0_candidates.shape[0], len(temporal_positions)])
     return new_f0_candidates, f0_candidates_score
 
 
@@ -197,17 +195,14 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     diff_window[-1] = main_window[-2] / 2
     diff_window[1:-1] = - (np.diff(main_window[1:]) + np.diff(main_window[:-1])) / 2
 
-    if 0: # old method, remove me
-        diff_window2 = -(np.diff(np.r_[0, main_window]) +
-                    np.diff(np.r_[main_window, 0])) / 2
-        assert np.allclose(diff_window, diff_window2)
-
     index = (np.maximum(1, np.minimum(len(x), index_raw)) - 1).astype(np.int32)
 
     #index = np.array(index, dtype=np.int)
 
     spectrum = np.fft.fft(x[index] * main_window, fft_size)
     diff_spectrum = np.fft.fft(x[index] * diff_window, fft_size)
+
+
     numerator_i = np.real(spectrum) * np.imag(diff_spectrum) - np.imag(spectrum) * np.real(diff_spectrum)
     power_spectrum = np.abs(spectrum) ** 2
     instantaneous_frequency = fx + numerator_i / power_spectrum * fs / 2 / math.pi

@@ -1,3 +1,5 @@
+import logging
+
 # 3rd party imports
 import numpy as np
 from scipy.io.wavfile import read as wavread
@@ -13,14 +15,10 @@ from .synthesis import synthesis
 from .swipe import swipe
 
 
-# compare to vocoder.py
-
-
 class World(object):
     def get_f0(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> tuple:
-        '''
-
+        """
         :param fs: sample frequency
         :param x: signal
         :param f0_method: f0 extraction method: dio, harvest
@@ -30,7 +28,7 @@ class World(object):
         :param target_fs: downsampled frequency for f0 extraction
         :param frame_period: in ms
         :return:
-        '''
+        """
         if f0_method == 'dio':
             source = dio(x, fs, f0_floor, f0_ceil, channels_in_octave, target_fs, frame_period)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
@@ -42,6 +40,7 @@ class World(object):
             raise Exception
         return source['temporal_positions'], source['f0'], source['vuv']  # or a dict
 
+    @staticmethod
     def get_spectrum(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                      channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> dict:
         '''
@@ -129,7 +128,7 @@ class World(object):
                 'spectrogram': filter['spectrogram']
                 }
 
-    def scale_pitch(self, dat: dict, factor: int) -> dict:
+    def scale_pitch(self, dat: dict, factor: float) -> dict:
         '''
         the function does pitch scaling
         :param dat: WORLD components (F0, spectrogram, aperiodicity)
@@ -155,8 +154,10 @@ class World(object):
         return dat
 
     def warp_spectrum(self, dat: dict, factor: float) -> dict:
-        dat['spectrogram'][:] = np.array([np.interp(np.arange(0, len(s)) ** factor, np.arange(0, len(s)),
-                                                    s) for s in dat['spectrogram'].T]).T
+        dat['spectrogram'][:] = np.array([np.interp((np.arange(0, len(s)) / len(s)) ** factor,
+                                                    (np.arange(0, len(s)) / len(s)),
+                                                    s)
+                                          for s in dat['spectrogram'].T]).T
         return dat
 
     def decode(self, dat: dict) -> dict:
@@ -166,6 +167,10 @@ class World(object):
         :return: a dictionary contains synthesized speech and WORLD components
         '''
         y = synthesis(dat, dat)
+        m = np.max(np.abs(y))
+        if m > 1.0:
+            logging.info('rescaling waveform')
+            y /= m
         dat['out'] = y
         return dat
 
