@@ -202,15 +202,15 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     spectrum = np.fft.fft(x[index] * main_window, fft_size)
     diff_spectrum = np.fft.fft(x[index] * diff_window, fft_size)
 
-
-    numerator_i = np.real(spectrum) * np.imag(diff_spectrum) - np.imag(spectrum) * np.real(diff_spectrum)
+    #numerator_i = np.real(spectrum) * np.imag(diff_spectrum) - np.imag(spectrum) * np.real(diff_spectrum)
+    numerator_i = spectrum.real * diff_spectrum.imag - spectrum.imag * diff_spectrum.real
     power_spectrum = np.abs(spectrum) ** 2
     instantaneous_frequency = fx + numerator_i / power_spectrum * fs / 2 / math.pi
 
     number_of_harmonics = min(np.floor(fs / 2 / current_f0), 6) # with safe guard
     harmonic_index = np.arange(1, number_of_harmonics + 1)
 
-    index_list = round_matlab(current_f0 * fft_size / fs * harmonic_index) # check later
+    index_list = round_matlab(current_f0 * fft_size / fs * harmonic_index)  # check later
     index_list = np.array(index_list, dtype=np.int)
     instantaneous_frequency_list = instantaneous_frequency[index_list]
     amplitude_list = np.sqrt(power_spectrum[index_list])
