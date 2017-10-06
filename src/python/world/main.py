@@ -43,7 +43,7 @@ class World(object):
         return source['temporal_positions'], source['f0'], source['vuv']  # or a dict
 
     @staticmethod
-    def get_spectrum(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
+    def get_spectrum(fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                      channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> dict:
         '''
         This function extract pitch-synchronous WORLD spectrogram
@@ -63,12 +63,14 @@ class World(object):
         else:
             raise Exception
         filter = cheaptrick(x, fs, source)
-        return {'temporal_positions': source['temporal_positions'],
+        return {'f0': source['f0'],
+            'temporal_positions': source['temporal_positions'],
                 'fs': fs,
                 'ps spectrogram': filter['ps spectrogram'],
                 'spectrogram': filter['spectrogram']}
 
-    def encode_w_gvn_f0(self, fs: int, x: np.ndarray, source: dict) -> dict:
+    @staticmethod
+    def encode_w_gvn_f0(fs: int, x: np.ndarray, source: dict) -> dict:
         '''
         This function extract WORLD spectrogram and aperiodicity with given F0 contour
         :param fs: sampling rate
