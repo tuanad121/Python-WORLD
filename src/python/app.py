@@ -14,13 +14,13 @@ if __name__ == '__main__':
     x = x_int16 / (2 ** 15 - 1)
     vocoder = main.World()
     # analysis
-    if 1:
+    if 0:
         print(timeit.timeit("vocoder.encode(fs, x, f0_method='harvest')", globals=globals(), number=1))
     else:
         dat = vocoder.encode(fs, x, f0_method='harvest')
-        if 0:
+        if 1:
             # global pitch scaling
-            dat = vocoder.scale_pitch(dat, 0.5)
+            dat = vocoder.scale_pitch(dat, 2) # be careful when scaling the pitch down too much.
         if 0:
             # global duration scaling
             dat = vocoder.scale_duration(dat, 2)

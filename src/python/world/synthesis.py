@@ -221,6 +221,7 @@ def fftfilt(b, x, *n):
             # lengths that are powers of 2 are considered:
             N = 2**np.arange(np.ceil(np.log2(N_b)),np.floor(np.log2(N_x)))
             cost = np.ceil(N_x/(N-N_b+1))*N*(np.log2(N)+1)
+            assert len(cost) > 0
             N_fft = N[np.argmin(cost)]
 
         else:

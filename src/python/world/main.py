@@ -1,4 +1,5 @@
 import logging
+import sys
 
 # 3rd party imports
 import numpy as np
@@ -13,6 +14,7 @@ from .cheaptrick import cheaptrick
 from .d4c import d4c
 from .synthesis import synthesis
 from .swipe import swipe
+
 
 
 class World(object):
@@ -190,6 +192,7 @@ class World(object):
         ax[0].legend(['original', 'synthesis'])
 
         X = dat['ps spectrogram']
+        X = np.where(X==0, sys.float_info.epsilon, X)
         ax[1].set_title('pitch-synchronous spectrogram')
         ax[1].imshow(20 * np.log10(np.abs(X[:X.shape[0] // 2, :])), cmap=plt.cm.gray_r, origin='lower',
                      extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
@@ -202,7 +205,9 @@ class World(object):
         ax[2].set_ylabel('frequency (Hz)')
 
         ax[3].set_title('WORLD spectrogram')
-        ax[3].imshow(20 * np.log10(dat['spectrogram']), cmap=plt.cm.gray_r, origin='lower',
+        Y = dat['spectrogram']
+        Y = np.where(Y == 0, sys.float_info.epsilon, Y)
+        ax[3].imshow(20 * np.log10(Y), cmap=plt.cm.gray_r, origin='lower',
                      extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
         ax[3].set_ylabel('frequency (Hz)')
 
