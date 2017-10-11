@@ -17,8 +17,8 @@ if __name__ == '__main__':
     if 0:
         print(timeit.timeit("vocoder.encode(fs, x, f0_method='harvest')", globals=globals(), number=1))
     else:
-        dat = vocoder.encode(fs, x, f0_method='harvest')
-        if 1:
+        dat = vocoder.encode(fs, x, f0_method='harvest', fft_size=512)
+        if 0:
             # global pitch scaling
             dat = vocoder.scale_pitch(dat, 2) # be careful when scaling the pitch down too much.
         if 0:

@@ -6,7 +6,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 import numba
 
-def d4c(x, fs, f0_object, threshold=0.85):
+def d4c(x, fs, f0_object, threshold=0.85, fft_size_for_spectrum=None):
     '''
     calculate aperiodicity
     :param x: input signal
@@ -17,9 +17,9 @@ def d4c(x, fs, f0_object, threshold=0.85):
     '''
     f0_low_limit = 47
     fft_size = int(2 ** np.ceil(np.log2(4 * fs / f0_low_limit + 1)))
-    # size of aperiodicity must be the same as that of spectrogram
     f0_low_limit_for_spectrum = 71
-    fft_size_for_spectrum = int(2 ** np.ceil(np.log2(3 * fs / f0_low_limit_for_spectrum + 1)))
+    if fft_size_for_spectrum == None:
+        fft_size_for_spectrum = int(2 ** np.ceil(np.log2(3 * fs / f0_low_limit_for_spectrum + 1)))
     upper_limit = 15000
     frequency_interval = 3000
     source_object = f0_object

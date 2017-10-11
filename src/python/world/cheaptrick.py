@@ -6,7 +6,7 @@ from scipy.interpolate import interp1d
 import numba
 
 
-def cheaptrick(x, fs, source_object, q1=-0.15):
+def cheaptrick(x, fs, source_object, q1=-0.15, fft_size=None):
     '''
     Generate smooth spectrogram from signal x, eliminating the affect of fundamental frequency F0
     Input:
@@ -18,7 +18,8 @@ def cheaptrick(x, fs, source_object, q1=-0.15):
     '''
     f0_low_limit = 71
     default_f0 = 500
-    fft_size = int(2 ** np.ceil(np.log2(3 * fs / f0_low_limit + 1)))
+    if fft_size==None:
+        fft_size = int(2 ** np.ceil(np.log2(3 * fs / f0_low_limit + 1)))
 
     f0_low_limit = fs * 3.0 / (fft_size - 3.0)
     temporal_positions = source_object['temporal_positions']

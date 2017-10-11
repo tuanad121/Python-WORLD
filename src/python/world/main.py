@@ -44,7 +44,7 @@ class World(object):
 
     @staticmethod
     def get_spectrum(fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
-                     channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> dict:
+                     channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5, fft_size=None) -> dict:
         '''
         This function extract pitch-synchronous WORLD spectrogram
         :param fs: sampling frequency
@@ -53,6 +53,8 @@ class World(object):
         :param f0_floor: f0 min
         :param f0_ceil: f0 max
         :param frame_period: frame shift
+        :param fft_size: fourier transform length
+        :param: channels_in_octave: channels per octave
         :return:
         '''
         if f0_method == 'dio':
@@ -60,9 +62,11 @@ class World(object):
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
         elif f0_method == 'harvest':
             source = harvest(x, fs, f0_floor, f0_ceil, frame_period)
+        elif f0_method == 'swipe':
+            source = swipe(fs, x, plim=[f0_floor, f0_ceil],sTHR=0.3)
         else:
             raise Exception
-        filter = cheaptrick(x, fs, source)
+        filter = cheaptrick(x, fs, source, fft_size=fft_size)
         return {'f0': source['f0'],
             'temporal_positions': source['temporal_positions'],
                 'fs': fs,
@@ -70,16 +74,18 @@ class World(object):
                 'spectrogram': filter['spectrogram']}
 
     @staticmethod
-    def encode_w_gvn_f0(fs: int, x: np.ndarray, source: dict) -> dict:
+    def encode_w_gvn_f0(fs: int, x: np.ndarray, source: dict, fft_size=None) -> dict:
         '''
+        Only use this function with default fft_size because f0_floor is defied by the value
         This function extract WORLD spectrogram and aperiodicity with given F0 contour
         :param fs: sampling rate
         :param x: signal
         :param source: a dictionary contains time, f0 contour and voice/unvoice
+        :param fft_size: length of Fourier transform
         :return: a dictionary contains WORLD's components
         '''
-        filter = cheaptrick(x, fs, source)
-        source = d4c(x, fs, source)
+        filter = cheaptrick(x, fs, source, fft_size=fft_size)
+        source = d4c(x, fs, source, fft_size_for_spectrum=fft_size)
         return {'temporal_positions': source['temporal_positions'],
                 'vuv': source['vuv'],
                 'f0': source['f0'],
@@ -91,7 +97,7 @@ class World(object):
 
     def encode(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5,
-               allowed_range: float = 0.1) -> dict:
+               allowed_range: float = 0.1, fft_size=None) -> dict:
         '''
         encode speech to excitation signal, f0, spectrogram
 
@@ -100,28 +106,29 @@ class World(object):
         :param f0_method: f0 extraction method: dio, harvest
         :param f0_floor: smallest f0
         :param f0_ceil: largest f0
-        :param channels_in_octave:
+        :param channels_in_octave: number of channels per octave
         :param target_fs: downsampled frequency for f0 extraction
         :param frame_period: in ms
         :param allowed_range:
+        :param fft_size: length of Fourier transform
         :return: a dictionary contains WORLD components
         '''
-
+        if fft_size != None:
+            f0_floor = 3.0 * fs / fft_size
         if f0_method == 'dio':
             source = dio(x, fs,
                          f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs,
-                         frame_period=frame_period)
+                         frame_period=frame_period, allowed_range=allowed_range)
             source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
         elif f0_method == 'harvest':
             source = harvest(x, fs,
                              f0_floor=f0_floor, f0_ceil=f0_ceil, frame_period=frame_period)
+        elif f0_method == 'swipe':
+            source = swipe(fs, x, plim=[f0_floor, f0_ceil], sTHR=0.3)
         else:
-            source = dio(x, fs,
-                         f0_floor=f0_floor, f0_ceil=f0_ceil, channels_in_octave=channels_in_octave, target_fs=target_fs,
-                         frame_period=frame_period)
-            source['f0'] = stonemask(x, fs, source['temporal_positions'], source['f0'])
-        filter = cheaptrick(x, fs, source)
-        source = d4c(x, fs, source)
+            raise Exception
+        filter = cheaptrick(x, fs, source, fft_size=fft_size)
+        source = d4c(x, fs, source, fft_size_for_spectrum=fft_size)
 
         return {'temporal_positions': source['temporal_positions'],
                 'vuv': source['vuv'],
@@ -188,8 +195,8 @@ class World(object):
 
         fig, ax = plt.subplots(nrows=5, figsize=(8, 6), sharex=True)
         ax[0].set_title('input signal and resynthesized-signal')
-        ax[0].plot(np.arange(len(x)) / fs, x)
-        ax[0].plot(np.arange(len(y)) / fs, y)
+        ax[0].plot(np.arange(len(x)) / fs, x, alpha=0.5)
+        ax[0].plot(np.arange(len(y)) / fs, y, alpha=0.5)
         ax[0].set_xlabel('samples')
         ax[0].legend(['original', 'synthesis'])
 
