@@ -131,29 +131,21 @@ def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
                      f0_candidates: np.ndarray, f0_floor: float, f0_ceil: float) -> tuple:
     new_f0_candidates = copy.deepcopy(f0_candidates)
     f0_candidates_score = f0_candidates * 0
+    N, f = f0_candidates.shape
+    if 1:
+        frame_candidate_data = [(x, fs, temporal_positions[i], f0_candidates[j, i], f0_floor, f0_ceil)
+                                for j in np.arange(N)
+                                for i in np.arange(f)]
+        with mp.Pool(mp.cpu_count()) as pool:
+            results = np.array(pool.starmap(GetRefinedF0, frame_candidate_data))
+        new_f0_candidates = np.reshape(results[:, 0], [N, f])
+        f0_candidates_score = np.reshape(results[:, 1], [N, f])
+    else:
+        # old one
+        for i in range(f):
+            for j in range(N):
+                new_f0_candidates[j,i], f0_candidates_score[j,i] = GetRefinedF0(x, fs, temporal_positions[i], f0_candidates[j,i], f0_floor, f0_ceil)
 
-    # for i in np.arange(len(temporal_positions)):
-    #     for j in np.arange(f0_candidates.shape[0]):
-    #          # tmp_f0 = f0_candidates[j, i]
-    #         # if tmp_f0 == 0:
-    #         #     continue
-    #         new_f0_candidates[j, i], f0_candidates_score[j, i] = GetRefinedF0(x, fs, temporal_positions[i], f0_candidates[j, i], f0_floor, f0_ceil)
-
-    # for j in np.arange(f0_candidates.shape[0]):
-    #     frame_candidate_data = []
-    #     for i in np.arange(len(temporal_positions)):
-    #         frame_candidate_data.append([x, fs, temporal_positions[i], f0_candidates[j, i], f0_floor, f0_ceil])
-    #     with mp.Pool(mp.cpu_count()) as pool:
-    #         results = np.array(pool.starmap(GetRefinedF0, frame_candidate_data))
-    #     new_f0_candidates[j,:] = np.array([elm[0] for elm in results])
-    #     f0_candidates_score[j,:] = np.array([elm[1] for elm in results])
-    frame_candidate_data = [(x, fs, temporal_positions[i], f0_candidates[j, i], f0_floor, f0_ceil)
-                            for j in np.arange(f0_candidates.shape[0])
-                            for i in np.arange(len(temporal_positions))]
-    with mp.Pool(mp.cpu_count()) as pool:
-        results = np.array(pool.starmap(GetRefinedF0, frame_candidate_data))
-    new_f0_candidates = np.reshape(results[:,0], [f0_candidates.shape[0], len(temporal_positions)])
-    f0_candidates_score = np.reshape(results[:,1], [f0_candidates.shape[0], len(temporal_positions)])
     return new_f0_candidates, f0_candidates_score
 
 
