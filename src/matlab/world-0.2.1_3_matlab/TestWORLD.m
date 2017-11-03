@@ -4,7 +4,7 @@
 % 2016/12/28: Refactoring.
 % 2017/01/02: Another example was added.
 
-[x, fs] = audioread('vaiueo2d.wav');
+[x, fs] = audioread('test-mwm.wav');
 
 if 0 % You can use Dio
   f0_parameter = Dio(x, fs);

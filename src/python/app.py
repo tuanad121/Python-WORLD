@@ -17,7 +17,7 @@ if __name__ == '__main__':
     if 0:
         print(timeit.timeit("vocoder.encode(fs, x, f0_method='harvest')", globals=globals(), number=1))
     else:
-        dat = vocoder.encode(fs, x, f0_method='harvest', fft_size=512)
+        dat = vocoder.encode(fs, x, f0_method='harvest')
         if 0:
             # global pitch scaling
             dat = vocoder.scale_pitch(dat, 2) # be careful when scaling the pitch down too much.
@@ -26,6 +26,16 @@ if __name__ == '__main__':
             dat = vocoder.scale_duration(dat, 2)
         if 0:
             dat = vocoder.warp_spectrum(dat, 1.2)
+        if 1:
+            # cepstral liftering
+            dat = vocoder.to_cepstrum(dat)
+            cep = dat['cepstrum']
+            # liftering
+            #cep[30:,:] *= 0
+            cep = cep[:40,:]
+            cep = np.r_[cep, np.zeros((((dat['spectrogram'].shape[0] - 1) * 2 - cep.shape[0]), cep.shape[1]))]
+            dat['cepstrum'] = cep
+            dat = vocoder.from_cepstrum(dat)
         # synthesis
         dat = vocoder.decode(dat)
         import simpleaudio as sa

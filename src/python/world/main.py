@@ -5,6 +5,7 @@ import sys
 import numpy as np
 from scipy.io.wavfile import read as wavread
 from matplotlib import pyplot as plt
+from numpy.fft import rfft, irfft
 
 # local imports
 from .dio import dio
@@ -42,8 +43,7 @@ class World(object):
             raise Exception
         return source['temporal_positions'], source['f0'], source['vuv']  # or a dict
 
-    @staticmethod
-    def get_spectrum(fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
+    def get_spectrum(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                      channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5, fft_size=None) -> dict:
         '''
         This function extract pitch-synchronous WORLD spectrogram
@@ -73,17 +73,16 @@ class World(object):
                 'ps spectrogram': filter['ps spectrogram'],
                 'spectrogram': filter['spectrogram']}
 
-    @staticmethod
-    def encode_w_gvn_f0(fs: int, x: np.ndarray, source: dict, fft_size=None) -> dict:
+    def encode_w_gvn_f0(self, fs: int, x: np.ndarray, source: dict, fft_size=None) -> dict:
         '''
-        Only use this function with default fft_size because f0_floor is defied by the value
-        This function extract WORLD spectrogram and aperiodicity with given F0 contour
+        Do WORLD pitch-synchronous analysis with given F0 contour
         :param fs: sampling rate
         :param x: signal
-        :param source: a dictionary contains time, f0 contour and voice/unvoice
+        :param source: a dictionary contains source['temporal_positions'] time in second, source['f0'] f0 contour and source['vuv'] voice/unvoice
         :param fft_size: length of Fourier transform
         :return: a dictionary contains WORLD's components
         '''
+        assert np.all(source['f0'] >= 3 * fs / fft_size)
         filter = cheaptrick(x, fs, source, fft_size=fft_size)
         source = d4c(x, fs, source, fft_size_for_spectrum=fft_size)
         return {'temporal_positions': source['temporal_positions'],
@@ -225,3 +224,19 @@ class World(object):
         ax[4].set_ylabel('time (s)')
 
         plt.show()
+
+    def to_cepstrum(self,data):
+        mag = data['spectrogram']
+        print(mag.shape)
+        mag = np.log(mag.T)
+        cep = irfft(mag)
+        data['cepstrum'] = cep.T
+        return data
+
+    def from_cepstrum(self, data):
+        mag = data['spectrogram'].T
+        cep = data['cepstrum'].T
+
+        mag = rfft(cep).real
+        data['spectrogram'] = np.exp(mag.T)
+        return data
