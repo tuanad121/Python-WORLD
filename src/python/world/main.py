@@ -16,8 +16,6 @@ from .d4c import d4c
 from .synthesis import synthesis
 from .swipe import swipe
 
-
-
 class World(object):
     def get_f0(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> tuple:
