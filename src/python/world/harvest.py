@@ -13,8 +13,8 @@ import numba
 EPS = 2.220446049250313e-16
 
 
-def harvest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
-    basic_frame_period = 1
+def harvest(x: np.ndarray, fs: int, f0_floor: int=71, f0_ceil: int=800, frame_period: int=5) -> dict:
+    basic_frame_period: int = 1
     target_fs = 8000
     num_samples = int(1000 * len(x) / fs / basic_frame_period + 1)
     basic_temporal_positions = np.arange(0, num_samples) * basic_frame_period / 1000
@@ -22,9 +22,9 @@ def harvest(x, fs, f0_floor=71, f0_ceil=800, frame_period=5):
     f0_floor_adjusted = f0_floor * 0.9
     f0_ceil_adjusted = f0_ceil * 1.1
 
-    boundary_f0_list = np.arange(math.ceil(np.log2(f0_ceil_adjusted / f0_floor_adjusted) * channels_in_octave)) + 1
-    boundary_f0_list = boundary_f0_list / channels_in_octave
-    boundary_f0_list = 2.0 ** boundary_f0_list
+    boundary_f0_list: np.ndarray = np.arange(math.ceil(np.log2(f0_ceil_adjusted / f0_floor_adjusted) * channels_in_octave)) + 1
+    boundary_f0_list /= channels_in_octave
+    boundary_f0_list **= 2.0
     boundary_f0_list *= f0_floor_adjusted
 
     # down - sampling to target_fs Hz

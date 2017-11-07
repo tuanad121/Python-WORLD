@@ -24,14 +24,23 @@ if __name__ == '__main__':
         dat = vocoder.scale_duration(dat, 2)
     if 0:
         dat = vocoder.warp_spectrum(dat, 1.2)
+    if 1:  # downsampling example
+        dat['spectrogram'][257:, :] = 1e-12
     if 1:  # cepstral smoothing
         dat = vocoder.to_cepstrum(dat)
         cep = dat['cepstrum']
+        D, N = cep.shape
         # liftering
-        #cep[30:,:] *= 0
-        cep = cep[:40,:]
-        cep = np.r_[cep, np.zeros((((dat['spectrogram'].shape[0] - 1) * 2 - cep.shape[0]), cep.shape[1]))]
-        dat['cepstrum'] = cep
+        L = 30
+        cep = cep[:L,:]
+        #cep = cep[:40,:]
+        #cep = np.r_[cep, np.zeros((((dat['spectrogram'].shape[0] - 1) * 2 - cep.shape[0]), cep.shape[1]))]
+        # process cep here
+        pass
+        # reconstruct now
+        cep2 = np.zeros((D, N))
+        cep2[:L, :] = cep
+        dat['cepstrum'] = cep2
         dat = vocoder.from_cepstrum(dat)
     if 0:  # LPC smoothing
         pass  # TODO
