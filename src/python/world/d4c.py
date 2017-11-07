@@ -22,8 +22,8 @@ def d4c(x, fs, f0_object, threshold=0.85, fft_size_for_spectrum=None):
         fft_size_for_spectrum = int(2 ** np.ceil(np.log2(3 * fs / f0_low_limit_for_spectrum + 1)))
     upper_limit = 15000
     frequency_interval = 3000
-    # if fs < 16000:
-    #     frequency_interval = 2000
+    if fs < 16000:
+        frequency_interval = 2000
     source_object = f0_object
 
     temporal_positions = f0_object['temporal_positions']
