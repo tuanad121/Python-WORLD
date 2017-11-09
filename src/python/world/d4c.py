@@ -6,7 +6,8 @@ import numpy as np
 from scipy.interpolate import interp1d
 import numba
 
-def d4c(x, fs, f0_object, threshold=0.85, fft_size_for_spectrum=None):
+
+def d4c(x: np.ndarray, fs: int, f0_object: dict, threshold: float=0.85, fft_size_for_spectrum: int=None) -> dict:
     '''
     calculate aperiodicity
     :param x: input signal
@@ -64,7 +65,7 @@ def d4c(x, fs, f0_object, threshold=0.85, fft_size_for_spectrum=None):
 
 
 ###################################################################################
-def d4c_love_train(x, fs, current_f0, current_position, threshold):
+def d4c_love_train(x: np.ndarray, fs: int, current_f0: float, current_position: float, threshold: float) -> int:
     vuv = 0
     if current_f0 == 0:
         return vuv
@@ -88,7 +89,8 @@ def d4c_love_train(x, fs, current_f0, current_position, threshold):
 
 
 ###################################################################################
-def get_windowed_waveform(x, fs, current_f0, current_position, half_length, window_type): # 1: hanning, 2: blackman
+def get_windowed_waveform(x: np.ndarray, fs: int, current_f0: float,
+                          current_position: float, half_length: float, window_type: int) -> np.ndarray: # 1: hanning, 2: blackman
     # prepare internal variables
     half_window_length = int(half_length * fs / current_f0 + 0.5)
     base_index = np.arange(-half_window_length, half_window_length + 1)
@@ -109,7 +111,9 @@ def get_windowed_waveform(x, fs, current_f0, current_position, half_length, wind
 
 
 ###################################################################################
-def estimate_one_slice(x, fs, current_f0, frequency_interval, current_position, fft_size, number_of_aperiodicity, window):
+def estimate_one_slice(x: np.ndarray, fs: int, current_f0: float,
+                       frequency_interval: int, current_position: float,
+                       fft_size: int, number_of_aperiodicity: int, window: np.ndarray) -> np.ndarray:
     if current_f0 == 0:
         return np.zeros(number_of_aperiodicity)
 
@@ -125,7 +129,7 @@ def estimate_one_slice(x, fs, current_f0, frequency_interval, current_position, 
 
 
 #########################################################################################################
-def get_static_centroid(x, fs, current_f0, temporal_position, fft_size):
+def get_static_centroid(x: np.ndarray, fs: int, current_f0: float, temporal_position: float, fft_size: int) -> np.ndarray:
     '''
         First step: calculation of temporally static parameters on basis of group delay
     '''     
@@ -139,7 +143,7 @@ def get_static_centroid(x, fs, current_f0, temporal_position, fft_size):
     
 
 #########################################################################################################
-def get_centroid(x, fft_size):
+def get_centroid(x: np.ndarray, fft_size: int) -> np.ndarray:
     time_axis = np.arange(1,len(x)+1)
     x = x / np.sqrt(np.sum(x**2))
 
@@ -150,7 +154,7 @@ def get_centroid(x, fft_size):
 
 
 ##########################################################################################################
-def get_smoothed_power_spectrum(waveform, fs, f0, fft_size):
+def get_smoothed_power_spectrum(waveform: np.ndarray, fs: float, f0: float, fft_size: int) -> np.ndarray:
     power_spectrum = np.abs(np.fft.fft(waveform, fft_size)) ** 2
     spectral_envelope = dc_correction(power_spectrum, fs, fft_size, f0)
     spectral_envelope = linear_smoothing(spectral_envelope, fs, fft_size, f0)

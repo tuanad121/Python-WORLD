@@ -40,7 +40,7 @@ def cheaptrick(x, fs, source_object, q1=-0.15, fft_size=None):
 
 
 ################################################################################################################
-def estimate_one_slice(x, fs, current_f0, current_position, fft_size, q1):
+def estimate_one_slice(x: np.ndarray, fs: int, current_f0: float, current_position: float, fft_size: int, q1: float) -> tuple:
     '''
     Calculating spectrum using CheapTrick algorithm consisting of 3 steps
     x: signal
@@ -61,7 +61,7 @@ def estimate_one_slice(x, fs, current_f0, current_position, fft_size, q1):
 
 
 #################################################################################################################
-def get_power_spectrum(waveform, fs, fft_size, f0):
+def get_power_spectrum(waveform: np.ndarray, fs: int, fft_size: int, f0: float) -> tuple:
     pitch_syn_spectrum = np.fft.fft(waveform, fft_size)
     power_spectrum = np.abs(pitch_syn_spectrum) ** 2
     frequency_axis = np.arange(fft_size) / fft_size * fs
@@ -76,7 +76,7 @@ def get_power_spectrum(waveform, fs, fft_size, f0):
 
 
 ##################################################################################################################
-def calculate_windowed_waveform(x, fs, f0, temporal_position):
+def calculate_windowed_waveform(x: np.ndarray, fs: int, f0: float, temporal_position: float) -> np.ndarray:
     '''
     First step: F0-adaptive windowing
     Design a window function with basic idea of pitch-synchronous analysis.
@@ -100,7 +100,7 @@ def calculate_windowed_waveform(x, fs, f0, temporal_position):
 
 
 ###################################################################################################################
-def linear_smoothing(power_spectrum, f0, fs, fft_size):
+def linear_smoothing(power_spectrum: np.ndarray, f0: float, fs: int, fft_size: int) -> np.ndarray:
     '''
         Second step: Frequency domain smoothing of power spectrum
         This step is carried out to ensure that the power spectrum has no zeros.
@@ -119,7 +119,7 @@ def linear_smoothing(power_spectrum, f0, fs, fft_size):
 
 
 ####################################################################################################################
-def interp1H(x, y, xi):
+def interp1H(x: np.ndarray, y: np.ndarray, xi: np.ndarray) -> np.ndarray:
     delta_x = x[1] - x[0]
     xi = np.maximum(x[0], np.minimum(x[-1], xi))
     xi_base = np.floor((xi - x[0]) / delta_x)
@@ -133,7 +133,7 @@ def interp1H(x, y, xi):
 
 ####################################################################################################################
 #@numba.jit((numba.float64[:,:], numba.float64, numba.float64, numba.float64, numba.float64), nopython=True, cache=True)
-def smoothing_with_recovery(smoothed_spectrum, f0, fs, fft_size, q1):
+def smoothing_with_recovery(smoothed_spectrum: np.ndarray, f0: float, fs: int, fft_size: int, q1: float) -> np.ndarray:
     '''
         Third step: Liftering in quefrency domain
         Remove frequency fluctuation caused by dicretization

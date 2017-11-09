@@ -22,9 +22,9 @@ def harvest(x: np.ndarray, fs: int, f0_floor: int=71, f0_ceil: int=800, frame_pe
     f0_floor_adjusted = f0_floor * 0.9
     f0_ceil_adjusted = f0_ceil * 1.1
 
-    boundary_f0_list: np.ndarray = np.arange(math.ceil(np.log2(f0_ceil_adjusted / f0_floor_adjusted) * channels_in_octave)) + 1
-    boundary_f0_list /= channels_in_octave
-    boundary_f0_list **= 2.0
+    boundary_f0_list = np.arange(np.ceil(np.log2(f0_ceil_adjusted / f0_floor_adjusted) * channels_in_octave)) + 1
+    boundary_f0_list = boundary_f0_list / channels_in_octave
+    boundary_f0_list = 2.0 ** boundary_f0_list
     boundary_f0_list *= f0_floor_adjusted
 
     # down - sampling to target_fs Hz
@@ -54,7 +54,7 @@ def harvest(x: np.ndarray, fs: int, f0_floor: int=71, f0_ceil: int=800, frame_pe
 
 
 ############################################################################################
-def CalculateDownsampledSignal(x, fs, target_fs):
+def CalculateDownsampledSignal(x: np.ndarray, fs: int, target_fs: int) -> tuple:
     decimation_ratio = int(fs / target_fs + 0.5)
     offset = int(np.ceil(140 / decimation_ratio) * decimation_ratio)
     x = np.append(np.append(np.ones(offset) * x[0], x), np.ones(offset) * x[-1])
@@ -71,9 +71,9 @@ def CalculateDownsampledSignal(x, fs, target_fs):
 
 
 ###################################################################################################
-def CalculateCandidates(number_of_frames,
-                        boundary_f0_list, y_length, temporal_positions, actual_fs, y_spectrum,
-                        f0_floor, f0_ceil):
+def CalculateCandidates(number_of_frames: int,
+                        boundary_f0_list: np.ndarray, y_length: int, temporal_positions: np.ndarray, actual_fs: int, y_spectrum: np.ndarray,
+                        f0_floor: int, f0_ceil: int) -> np.ndarray:
     raw_f0_candidates = np.zeros((len(boundary_f0_list), number_of_frames))
 
     for i in range(len(boundary_f0_list)):
@@ -84,14 +84,14 @@ def CalculateCandidates(number_of_frames,
 
 
 ####################################################################################################
-def DetectCandidates(raw_f0_candidates):
+def DetectCandidates(raw_f0_candidates: np.ndarray):
     number_of_channels, number_of_frames = raw_f0_candidates.shape
     f0_candidates = np.zeros((int(number_of_channels / 10 + 0.5), number_of_frames))
     number_of_candidates = 0
     threshold = 10
 
     for i in np.arange(number_of_frames):
-        tmp = copy.deepcopy(raw_f0_candidates[:, i])
+        tmp = np.array(raw_f0_candidates[:, i])
         tmp[tmp > 0] = 1
         tmp[0] = 0
         tmp[-1] = 0
@@ -110,7 +110,7 @@ def DetectCandidates(raw_f0_candidates):
 
 
 ####################################################################################################
-def OverlapF0Candidates(f0_candidates, max_candidates):
+def OverlapF0Candidates(f0_candidates: np.ndarray, max_candidates: int) -> np.ndarray:
     n = 3 # This is the optimzied parameter.
 
     number_of_candidates = n * 2 + 1
@@ -218,7 +218,7 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
 
 
 ####################################################################################################
-def RemoveUnreliableCandidates(f0_candidates, f0_candidates_score):
+def RemoveUnreliableCandidates(f0_candidates: np.ndarray, f0_candidates_score: np.ndarray) -> tuple:
     new_f0_candidates = np.array(f0_candidates)
     new_f0_candidates_score = np.array(f0_candidates_score)
     threshold = 0.05
@@ -242,7 +242,7 @@ def RemoveUnreliableCandidates(f0_candidates, f0_candidates_score):
 
 ###################################################################################################
 @numba.jit((numba.float64, numba.float64[:], numba.float64), nopython=True, cache=True)  # eager compilation through function signature
-def SelectBestF0(reference_f0, f0_candidates, allowed_range):
+def SelectBestF0(reference_f0: float, f0_candidates: np.ndarray, allowed_range: float) -> tuple:
     best_f0 = 0
     best_error = allowed_range
     for i in np.arange(len(f0_candidates)):
@@ -255,7 +255,7 @@ def SelectBestF0(reference_f0, f0_candidates, allowed_range):
 
 
 ####################################################################################################
-def CalculateRawEvent(boundary_f0, fs, y_spectrum, y_length, temporal_positions, f0_floor, f0_ceil):
+def CalculateRawEvent(boundary_f0: float, fs: int, y_spectrum: np.ndarray, y_length: int, temporal_positions: np.ndarray, f0_floor: int, f0_ceil: int) -> np.ndarray:
     filter_length_half = int(Decimal(fs / boundary_f0 * 2).quantize(0, ROUND_HALF_UP))
     band_pass_filter_base = nuttall(filter_length_half * 2 + 1)
     shifter = np.cos(2 * math.pi * boundary_f0 * np.arange(-filter_length_half, filter_length_half + 1) / fs)
@@ -287,7 +287,7 @@ def CalculateRawEvent(boundary_f0, fs, y_spectrum, y_length, temporal_positions,
 ###################################################################################################
 # negative zero crossing: going from positive to negative
 @numba.jit((numba.float64[:], numba.float64), nopython=True, cache=True)
-def ZeroCrossingEngine(x, fs):
+def ZeroCrossingEngine(x: np.ndarray, fs: int) -> tuple:
     y = np.empty_like(x)
     y[:-1] = x[1:]
     y[-1] = x[-1]
@@ -304,7 +304,7 @@ def ZeroCrossingEngine(x, fs):
 
 
 ####################################################################################################
-def FixF0Contour(f0_candidates, f0_candidates_score):
+def FixF0Contour(f0_candidates: np.ndarray, f0_candidates_score: np.ndarray) -> tuple:
     f0_base = SearchF0Base(f0_candidates, f0_candidates_score)
     f0_step1 = FixStep1(f0_base, 0.008) # optimized
     f0_step2 = FixStep2(f0_step1, 6) # optimized
@@ -317,7 +317,7 @@ def FixF0Contour(f0_candidates, f0_candidates_score):
 
 ####################################################################################################
 # F0s with the highest score are selected as a basic f0 contour.
-def SearchF0Base(f0_candidates, f0_candidates_score):
+def SearchF0Base(f0_candidates: np.ndarray, f0_candidates_score: np.ndarray) -> np.ndarray:
     f0_base = np.zeros((f0_candidates.shape[1]))
     for i in range(len(f0_base)):
         max_index = np.argmax(f0_candidates_score[:, i])
@@ -328,7 +328,7 @@ def SearchF0Base(f0_candidates, f0_candidates_score):
 ####################################################################################################
 # Step 1: Rapid change of f0 contour is replaced by 0
 @numba.jit((numba.float64[:], numba.float64), nopython=True, cache=True)
-def FixStep1(f0_base, allowed_range):
+def FixStep1(f0_base: np.ndarray, allowed_range: float) -> np.ndarray:
     f0_step1 = np.empty_like(f0_base)
     f0_step1[:] = f0_base
     f0_step1[0] = 0
@@ -346,7 +346,7 @@ def FixStep1(f0_base, allowed_range):
 
 ####################################################################################################
 # Step 2: Voiced sections with a short period are removed
-def FixStep2(f0_step1, voice_range_minimum):
+def FixStep2(f0_step1: np.ndarray, voice_range_minimum: float):
     f0_step2 = np.empty_like(f0_step1)
     f0_step2[:] = f0_step1
     boundary_list = GetBoundaryList(f0_step1)
@@ -360,8 +360,8 @@ def FixStep2(f0_step1, voice_range_minimum):
 
 ####################################################################################################
 # Step 3: Voiced sections are extended based on the continuity of F0 contour
-def FixStep3(f0_step2, f0_candidates, allowed_range, f0_candidates_score):
-    f0_step3 = copy.deepcopy(f0_step2)
+def FixStep3(f0_step2: np.ndarray, f0_candidates: np.ndarray, allowed_range: float, f0_candidates_score: np.ndarray) -> np.ndarray:
+    f0_step3 = np.array(f0_step2)
     boundary_list = GetBoundaryList(f0_step2)
     multi_channel_f0 = GetMultiChannelF0(f0_step2, boundary_list)
     range = np.zeros((len(boundary_list) // 2, 2))
@@ -391,7 +391,7 @@ def FixStep3(f0_step2, f0_candidates, allowed_range, f0_candidates_score):
 
 ####################################################################################################
 # Step 4: F0s in short unvoiced section are faked
-def FixStep4(f0_step3, threshold):
+def FixStep4(f0_step3: np.ndarray, threshold:float) -> np.ndarray:
     f0_step4 = np.empty_like(f0_step3)
     f0_step4[:] = f0_step3
     boundary_list = GetBoundaryList(f0_step3)
@@ -413,7 +413,7 @@ def FixStep4(f0_step3, threshold):
 ####################################################################################################
 def ExtendF0(f0, origin, last_point, shift, f0_candidates, allowed_range):
     threshold = 4
-    extended_f0 = copy.deepcopy(f0)
+    extended_f0 = np.array(f0)
     tmp_f0 = extended_f0[origin]
     shifted_origin = origin
 
@@ -436,7 +436,7 @@ def ExtendF0(f0, origin, last_point, shift, f0_candidates, allowed_range):
 
 
 ####################################################################################################
-def GetMultiChannelF0(f0, boundary_list):
+def GetMultiChannelF0(f0: np.ndarray, boundary_list: np.ndarray) -> np.ndarray:
     multi_channel_f0 = np.zeros((len(boundary_list) // 2, len(f0)))
     for i in np.arange(1, len(boundary_list) // 2 + 1):
         multi_channel_f0[i - 1, boundary_list[(i * 2) - 2] : boundary_list[i * 2 - 1] + 1] =\
@@ -445,7 +445,7 @@ def GetMultiChannelF0(f0, boundary_list):
 
 
 ####################################################################################################
-def MergeF0(multi_channel_f0, range_, f0_candidates, f0_candidates_score):
+def MergeF0(multi_channel_f0: np.ndarray, range_: np.ndarray, f0_candidates: np.ndarray, f0_candidates_score: np.ndarray) -> np.ndarray:
     number_of_channels = multi_channel_f0.shape[0]
     sorted_order = np.argsort(range_[:, 0], axis=0, kind='quicksort')
     f0 = multi_channel_f0[sorted_order[0], :]
@@ -466,7 +466,9 @@ def MergeF0(multi_channel_f0, range_, f0_candidates, f0_candidates_score):
 
 
 ####################################################################################################
-def MergeF0Sub(f0_1, st1, ed1, f0_2, st2, ed2, f0_candidates, f0_candidates_score):
+def MergeF0Sub(f0_1: np.ndarray, st1: int, ed1: int,
+               f0_2: np.ndarray, st2: int, ed2: int,
+               f0_candidates: np.ndarray, f0_candidates_score: np.ndarray) -> tuple:
     merged_f0 = copy.deepcopy(f0_1)
     st1 = int(st1)
     st2 = int(st2)
@@ -491,7 +493,7 @@ def MergeF0Sub(f0_1, st1, ed1, f0_2, st2, ed2, f0_candidates, f0_candidates_scor
 
 
 ####################################################################################################
-def SerachScore(f0, f0_candidates, f0_candidates_score):
+def SerachScore(f0: float, f0_candidates: np.ndarray, f0_candidates_score: np.ndarray) -> float:
     score = 0
     for i in range(f0_candidates.shape[0]):
         if f0 == f0_candidates[i] and score < f0_candidates_score[i]:
@@ -500,7 +502,10 @@ def SerachScore(f0, f0_candidates, f0_candidates_score):
 
 
 ####################################################################################################
-def GetF0Candidates(neg_loc, neg_f0, pos_loc, pos_f0, peak_loc, peak_f0, dip_loc, dip_f0, temporal_positions):
+def GetF0Candidates(neg_loc: np.ndarray, neg_f0: np.ndarray,
+                    pos_loc: np.ndarray, pos_f0: np.ndarray,
+                    peak_loc: np.ndarray, peak_f0: np.ndarray,
+                    dip_loc: np.ndarray, dip_f0: np.ndarray, temporal_positions: np.ndarray):
     # test this one
     usable_channel = max(0, np.size(neg_loc) - 2) * \
                      max(0, np.size(pos_loc) - 2) * \
@@ -531,7 +536,7 @@ def GetF0Candidates(neg_loc, neg_f0, pos_loc, pos_f0, peak_loc, peak_f0, dip_loc
 
 
 ###################################################################################################
-def SmoothF0(f0):
+def SmoothF0(f0: np.ndarray) -> np.ndarray:
     b = np.array([0.0078202080334971724, 0.015640416066994345, 0.0078202080334971724])
     a = np.array([1.0, -1.7347257688092754, 0.76600660094326412])
 
@@ -548,7 +553,7 @@ def SmoothF0(f0):
 
 
 ####################################################################################################
-def FilterF0(f0_contour, st, ed, b, a):
+def FilterF0(f0_contour: np.ndarray, st: int, ed: int, b: np.ndarray, a: np.ndarray) -> np.ndarray:
     smoothed_f0 = copy.deepcopy(f0_contour)
     smoothed_f0[0 : st] = smoothed_f0[st]
     smoothed_f0[ed + 1: ] = smoothed_f0[ed]
@@ -561,7 +566,7 @@ def FilterF0(f0_contour, st, ed, b, a):
 
 
 ####################################################################################################
-def nuttall(N):
+def nuttall(N: int) -> np.ndarray:
     t = np.asmatrix(np.arange(N) * 2 * math.pi / (N-1))
     coefs = np.array([0.355768, -0.487396, 0.144232, -0.012604])
     window = coefs @ np.cos(np.matrix([0,1,2,3]).T @ t)
@@ -570,8 +575,8 @@ def nuttall(N):
 
 #######################################################################################################
 # Note: vuv(1) and vuv(end) are set to 0.
-def GetBoundaryList(f0):
-    vuv = copy.deepcopy(f0)
+def GetBoundaryList(f0: np.ndarray) -> np.ndarray:
+    vuv = np.array(f0)
     vuv[vuv != 0] = 1
     vuv[0] = 0
     vuv[-1] = 0

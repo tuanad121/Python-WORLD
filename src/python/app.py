@@ -24,9 +24,9 @@ if __name__ == '__main__':
         dat = vocoder.scale_duration(dat, 2)
     if 0:
         dat = vocoder.warp_spectrum(dat, 1.2)
-    if 1:  # downsampling example
+    if 0:  # downsampling example
         dat['spectrogram'][257:, :] = 1e-12
-    if 1:  # cepstral smoothing
+    if 0:  # cepstral smoothing
         dat = vocoder.to_cepstrum(dat)
         cep = dat['cepstrum']
         D, N = cep.shape
