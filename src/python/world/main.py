@@ -212,7 +212,7 @@ class World(object):
 
         ax[3].set_title('WORLD spectrogram')
         Y = dat['spectrogram']
-        Y = np.where(Y == 0, sys.float_info.epsilon, Y)
+        Y = np.where(Y < sys.float_info.epsilon, sys.float_info.epsilon, Y)
         ax[3].imshow(20 * np.log10(Y), cmap=plt.cm.gray_r, origin='lower',
                      extent=[0, len(x) / fs, 0, fs / 2], aspect='auto')
         ax[3].set_ylabel('frequency (Hz)')
