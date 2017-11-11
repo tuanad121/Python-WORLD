@@ -38,6 +38,32 @@ class Levinson(object):
 
 levinson = Levinson().compute  # functional form for convenience
 
+def trfbank(fs, nfft, lowfreq, linsc, logsc, nlinfilt, nlogfilt):
+    """Compute triangular filterbank for MFCC computation. Adapted from scikits.talkbox"""
+    nfilt = nlinfilt + nlogfilt
+    # Compute start/middle/end points of the triangular filters in spectral domain
+    freqs = np.zeros(nfilt+2)
+    freqs[:nlinfilt] = lowfreq + np.arange(nlinfilt) * linsc
+    freqs[nlinfilt:] = freqs[nlinfilt-1] * logsc ** np.arange(1, nlogfilt + 3)
+    heights = 2./(freqs[2:] - freqs[0:-2])
+    # Compute filterbank coeff (in fft domain, in bins)
+    fbank = np.zeros((nfilt, nfft))
+    # FFT bins (in Hz)
+    nfreqs = np.arange(nfft) / (1. * nfft) * fs
+    for i in range(nfilt):
+        low = freqs[i]
+        cen = freqs[i+1]
+        hi = freqs[i+2]
+        lid = np.arange(np.floor(low * nfft / fs) + 1,
+                        np.floor(cen * nfft / fs) + 1, dtype=np.int)
+        lslope = heights[i] / (cen - low)
+        rid = np.arange(np.floor(cen * nfft / fs) + 1,
+                        np.floor(hi  * nfft / fs) + 1, dtype=np.int)
+        rslope = heights[i] / (hi - cen)
+        fbank[i][lid] = lslope * (nfreqs[lid] - low)
+        fbank[i][rid] = rslope * (hi - nfreqs[rid])
+    return fbank  #, freqs
+
 if __name__ == '__main__':   
     name = 'test-mwm'
     fs, x_int16 = wavread('{}.wav'.format(name))
@@ -70,7 +96,7 @@ if __name__ == '__main__':
         cep2[:L, :] = cep
         dat['cepstrum'] = cep2
         dat = vocoder.from_cepstrum(dat)
-    if 1:  # LPC smoothing
+    if 0:  # LPC smoothing
         from scipy.fftpack import ifft
         from scipy.signal import freqz
         # Levinson Durbin on spectrum
@@ -90,6 +116,21 @@ if __name__ == '__main__':
             g = rms1 / rms2
             H[:, i] = g * h
         dat['spectrogram'] = H
+    if 1: # MFCC
+        from scipy.fftpack.realtransforms import dct
+        nceps=13
+        spec = dat['spectrogram']
+        D, N = spec.shape
+        lowfreq = 133.33
+        linsc = 200 / 3.
+        logsc = 1.0711703
+        nlinfil = 13
+        nlogfil = 27
+        # nfil = nlinfil + nlogfil
+        fbank = trfbank(fs, (D-1)*2, lowfreq, linsc, logsc, nlinfil, nlogfil)
+        fbank = fbank[:,:D]
+        mspec = np.log(np.dot(spec.T, fbank.T)).T
+        ceps = dct(mspec, type=2, norm='ortho', axis=-1)[:, :nceps]
 
     # synthesis
     dat = vocoder.decode(dat)
