@@ -1,15 +1,10 @@
-# temp files
+# macOS
 .DS_Store
-
-# WingIDE user-specific settings
-*.wpu
-*.wpr
 
 # python
 *.py[c|o]
-__pycache__*
+__pycache__
 
+# C
 *.so
 *.c
-
-*/recode.m
