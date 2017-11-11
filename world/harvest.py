@@ -180,20 +180,17 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     common = math.pi * ((index_raw - 1) / fs - current_time) / window_length_in_time
     main_window = 0.42 + 0.5 * np.cos(2 * common) + 0.08 * np.cos(4 * common)
 
-    # new method
     diff_window = np.empty_like(main_window)
     diff_window[0] = - main_window[1] / 2
     diff_window[-1] = main_window[-2] / 2
-    diff_window[1:-1] = - (np.diff(main_window[1:]) + np.diff(main_window[:-1])) / 2
+    diff = np.diff(main_window)
+    diff_window[1:-1] = - (diff[1:] + diff[:-1]) / 2
 
     index = (np.maximum(1, np.minimum(len(x), index_raw)) - 1).astype(np.int32)
-
-    #index = np.array(index, dtype=np.int)
 
     spectrum = np.fft.fft(x[index] * main_window, fft_size)
     diff_spectrum = np.fft.fft(x[index] * diff_window, fft_size)
 
-    #numerator_i = np.real(spectrum) * np.imag(diff_spectrum) - np.imag(spectrum) * np.real(diff_spectrum)
     numerator_i = spectrum.real * diff_spectrum.imag - spectrum.imag * diff_spectrum.real
     power_spectrum = np.abs(spectrum) ** 2
     instantaneous_frequency = fx + numerator_i / power_spectrum * fs / 2 / math.pi
@@ -202,7 +199,6 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     harmonic_index = np.arange(1, number_of_harmonics + 1)
 
     index_list = round_matlab(current_f0 * fft_size / fs * harmonic_index).astype(np.int)  # check later
-    #index_list = np.array(index_list, dtype=np.int)
     instantaneous_frequency_list = instantaneous_frequency[index_list]
     amplitude_list = np.sqrt(power_spectrum[index_list])
     refined_f0 = np.sum(amplitude_list * instantaneous_frequency_list) / np.sum(amplitude_list * harmonic_index)
