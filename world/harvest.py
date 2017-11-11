@@ -8,6 +8,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 from scipy.signal import lfilter
 from scipy import signal
+from scipy.fftpack import fft
 import numba
 
 EPS = 2.220446049250313e-16
@@ -188,8 +189,8 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
 
     index = (np.maximum(1, np.minimum(len(x), index_raw)) - 1).astype(np.int32)
 
-    spectrum = np.fft.fft(x[index] * main_window, fft_size)
-    diff_spectrum = np.fft.fft(x[index] * diff_window, fft_size)
+    spectrum = fft(x[index] * main_window, fft_size)
+    diff_spectrum = fft(x[index] * diff_window, fft_size)
 
     numerator_i = spectrum.real * diff_spectrum.imag - spectrum.imag * diff_spectrum.real
     power_spectrum = np.abs(spectrum) ** 2
