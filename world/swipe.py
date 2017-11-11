@@ -2,7 +2,6 @@ import numpy as np
 from scipy.io.wavfile import read
 
 from decimal import Decimal, ROUND_HALF_UP
-from matplotlib import mlab
 from scipy import interpolate
 
 
@@ -165,6 +164,8 @@ def sieve(n):
     return primes
 
 if __name__ == '__main__':
+    from matplotlib import mlab
+
     fs, x = read('arctic_a0001.wav')
     x = x / (2 ** 15 - 1)
     source = swipe(fs, x, [71, 800], 0.005, 0.3)

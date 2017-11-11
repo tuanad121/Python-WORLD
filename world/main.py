@@ -4,7 +4,6 @@ import sys
 # 3rd party imports
 import numpy as np
 from scipy.io.wavfile import read as wavread
-from matplotlib import pyplot as plt
 from numpy.fft import rfft, irfft
 
 # local imports
@@ -15,6 +14,7 @@ from .cheaptrick import cheaptrick
 from .d4c import d4c
 from .synthesis import synthesis
 from .swipe import swipe
+
 
 class World(object):
     def get_f0(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
@@ -186,6 +186,8 @@ class World(object):
         '''
         An example of visualize WORLD components, original signal, synthesized signal
         '''
+        from matplotlib import pyplot as plt
+
         fs = dat['fs']
         time = dat['temporal_positions']
         y = dat['out']
