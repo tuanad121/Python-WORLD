@@ -9,4 +9,7 @@
 *.py[c|o]
 __pycache__*
 
+*.so
+*.c
+
 */recode.m

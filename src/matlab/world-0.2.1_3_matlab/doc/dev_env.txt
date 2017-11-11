@@ -1,7 +1,0 @@
-OS 	: Windows 7 64 bit
-CPU 	: Core i7-3540M 3.0 GHz
-RAM 	: 16 GB
-
-Software
-Mathworks MATLAB 9.0.0.341360 (R2016a) + Signal processing toolbox.
-

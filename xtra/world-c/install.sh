@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 rm -Rf World
 git clone https://github.com/mmorise/World.git
 git clone https://github.com/JeremyCCHsu/Python-Wrapper-for-World-Vocoder.git
