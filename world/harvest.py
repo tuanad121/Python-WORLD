@@ -132,7 +132,7 @@ def RefineCandidates(x: np.ndarray, fs: float, temporal_positions: np.ndarray,
     new_f0_candidates = copy.deepcopy(f0_candidates)
     f0_candidates_score = f0_candidates * 0
     N, f = f0_candidates.shape
-    if 1:
+    if 1:  # parallel
         frame_candidate_data = [(x, fs, temporal_positions[i], f0_candidates[j, i], f0_floor, f0_ceil)
                                 for j in np.arange(N)
                                 for i in np.arange(f)]
@@ -177,10 +177,8 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     # First-aid treatment
     index_raw = round_matlab((current_time + base_time) * fs + 0.001)
 
-    index_time = (index_raw - 1) / fs
-    window_time = index_time - current_time
-    main_window = 0.42 + 0.5 * np.cos(2 * math.pi * window_time / window_length_in_time) +\
-                  0.08 * np.cos(4 * math.pi * window_time / window_length_in_time)
+    common = math.pi * ((index_raw - 1) / fs - current_time) / window_length_in_time
+    main_window = 0.42 + 0.5 * np.cos(2 * common) + 0.08 * np.cos(4 * common)
 
     # new method
     diff_window = np.empty_like(main_window)
@@ -200,11 +198,11 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     power_spectrum = np.abs(spectrum) ** 2
     instantaneous_frequency = fx + numerator_i / power_spectrum * fs / 2 / math.pi
 
-    number_of_harmonics = min(np.floor(fs / 2 / current_f0), 6) # with safe guard
+    number_of_harmonics = min(np.floor(fs / 2 / current_f0), 6)  # with safe guard
     harmonic_index = np.arange(1, number_of_harmonics + 1)
 
-    index_list = round_matlab(current_f0 * fft_size / fs * harmonic_index)  # check later
-    index_list = np.array(index_list, dtype=np.int)
+    index_list = round_matlab(current_f0 * fft_size / fs * harmonic_index).astype(np.int)  # check later
+    #index_list = np.array(index_list, dtype=np.int)
     instantaneous_frequency_list = instantaneous_frequency[index_list]
     amplitude_list = np.sqrt(power_spectrum[index_list])
     refined_f0 = np.sum(amplitude_list * instantaneous_frequency_list) / np.sum(amplitude_list * harmonic_index)

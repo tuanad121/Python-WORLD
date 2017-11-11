@@ -70,11 +70,9 @@ if __name__ == '__main__':
     x = x_int16 / (2 ** 15 - 1)
     vocoder = main.World()
     dat = vocoder.encode(fs, x, f0_method='harvest')
-    if 0:
-        # global pitch scaling
+    if 0:  # global pitch scaling
         dat = vocoder.scale_pitch(dat, 2)  # be careful when scaling the pitch down too much
-    if 0:
-        # global duration scaling
+    if 0:  # global duration scaling
         dat = vocoder.scale_duration(dat, 2)
     if 0:
         dat = vocoder.warp_spectrum(dat, 1.2)
@@ -116,7 +114,7 @@ if __name__ == '__main__':
             g = rms1 / rms2
             H[:, i] = g * h
         dat['spectrogram'] = H
-    if 1: # MFCC
+    if 0:  # MFCC
         from scipy.fftpack.realtransforms import dct
         nceps=13
         spec = dat['spectrogram']
@@ -137,6 +135,6 @@ if __name__ == '__main__':
     import simpleaudio as sa
     snd = sa.play_buffer((dat['out'] * 2 ** 15).astype(np.int16), 1, 2, fs)
     snd.wait_done()
-    if 1:
+    if 0:
         # visualize
         vocoder.draw(x, dat)
