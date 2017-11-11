@@ -173,7 +173,6 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     window_length_in_time = (2 * half_window_length + 1) / fs
     base_time = np.arange(-half_window_length, half_window_length + 1) / fs
     fft_size = int(2 ** np.ceil(np.log2((half_window_length * 2 + 1)) + 1))
-    fx = (np.arange(fft_size) / fft_size * fs)
 
     # First-aid treatment
     index_raw = round_matlab((current_time + base_time) * fs + 0.001)
@@ -187,21 +186,21 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     diff = np.diff(main_window)
     diff_window[1:-1] = - (diff[1:] + diff[:-1]) / 2
 
-    index = (np.maximum(1, np.minimum(len(x), index_raw)) - 1).astype(np.int32)
+    index = (np.maximum(1, np.minimum(len(x), index_raw)) - 1).astype(np.int)
 
     spectrum = fft(x[index] * main_window, fft_size)
     diff_spectrum = fft(x[index] * diff_window, fft_size)
 
     numerator_i = spectrum.real * diff_spectrum.imag - spectrum.imag * diff_spectrum.real
     power_spectrum = np.abs(spectrum) ** 2
-    instantaneous_frequency = fx + numerator_i / power_spectrum * fs / 2 / math.pi
+    instantaneous_frequency = (np.arange(fft_size) / fft_size + numerator_i / power_spectrum / 2 / math.pi) * fs
 
     number_of_harmonics = min(np.floor(fs / 2 / current_f0), 6)  # with safe guard
     harmonic_index = np.arange(1, number_of_harmonics + 1)
 
-    index_list = round_matlab(current_f0 * fft_size / fs * harmonic_index).astype(np.int)  # check later
-    instantaneous_frequency_list = instantaneous_frequency[index_list]
-    amplitude_list = np.sqrt(power_spectrum[index_list])
+    index = round_matlab(current_f0 * fft_size / fs * harmonic_index).astype(np.int)
+    instantaneous_frequency_list = instantaneous_frequency[index]
+    amplitude_list = np.sqrt(power_spectrum[index])
     refined_f0 = np.sum(amplitude_list * instantaneous_frequency_list) / np.sum(amplitude_list * harmonic_index)
 
     variation = np.abs(((instantaneous_frequency_list / harmonic_index) - current_f0) / current_f0)

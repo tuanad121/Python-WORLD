@@ -147,6 +147,7 @@ class World(object):
         return dat
 
     def set_pitch(self, dat: dict, time: np.ndarray, value: np.ndarray) -> dict:
+        raise NotImplementedError  # TODO: need to resample to set values at given temporal positions (which are presumably shared with the spectrogram)
         dat['f0'] = value
         dat['temporal_positions'] = time
         return dat
@@ -160,6 +161,17 @@ class World(object):
         '''
         dat['temporal_positions'] *= factor
         return dat
+
+    def modify_duration(self, dat: dict, from_time: np.ndarray, to_time: np.ndarray) -> dict:
+        end = dat['temporal_positions'][-1]
+        assert np.all(np.diff(from_time)) > 0
+        assert np.all(np.diff(to_time)) > 0
+        assert from_time[0] > 0
+        assert from_time[-1] < end
+        from_time = np.r_[0, from_time, end]
+        if to_time[-1] == -1:
+            to_time[-1] = end
+        dat['temporal_positions'] = np.interp(dat['temporal_positions'], from_time, to_time)
 
     def warp_spectrum(self, dat: dict, factor: float) -> dict:
         dat['spectrogram'][:] = np.array([np.interp((np.arange(0, len(s)) / len(s)) ** factor,

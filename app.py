@@ -73,7 +73,9 @@ if __name__ == '__main__':
     if 0:  # global pitch scaling
         dat = vocoder.scale_pitch(dat, 2)  # be careful when scaling the pitch down too much
     if 0:  # global duration scaling
-        dat = vocoder.scale_duration(dat, 2)
+        dat = vocoder.scale_duration(dat, 2)  # TODO: actually don't need to return this
+    if 0:
+        vocoder.modify_duration(dat, [1, 1.5], [0, 1, 3, -1])
     if 0:
         dat = vocoder.warp_spectrum(dat, 1.2)
     if 0:  # downsampling example
