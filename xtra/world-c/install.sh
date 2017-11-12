@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-rm -Rf World
-git clone https://github.com/mmorise/World.git
+rm -rf Python-Wrapper-for-World-Vocoder
 git clone https://github.com/JeremyCCHsu/Python-Wrapper-for-World-Vocoder.git
-mv Python-Wrapper-for-World-Vocoder/* World/
-cd World
-python setup.py build_ext --inplace 
-echo "SUCCESS! copy `ls *.so` into your working folder"
-cd ..
-rm -Rf Python-Wrapper-for-World-Vocoder
+cd Python-Wrapper-for-World-Vocoder
+git submodule update --init
+python setup.py build_ext --inplace && echo "SUCCESS! You can copy `ls pyworld/*.so` into your working folder to use."
