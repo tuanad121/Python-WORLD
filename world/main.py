@@ -1,5 +1,6 @@
 import logging
 import sys
+from typing import Iterable
 
 # 3rd party imports
 import numpy as np
@@ -162,7 +163,7 @@ class World(object):
         dat['temporal_positions'] *= factor
         return dat
 
-    def modify_duration(self, dat: dict, from_time: np.ndarray, to_time: np.ndarray) -> dict:
+    def modify_duration(self, dat: dict, from_time: Iterable, to_time: Iterable) -> dict:
         end = dat['temporal_positions'][-1]
         assert np.all(np.diff(from_time)) > 0
         assert np.all(np.diff(to_time)) > 0

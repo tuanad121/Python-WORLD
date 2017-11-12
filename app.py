@@ -96,41 +96,57 @@ if __name__ == '__main__':
         cep2[:L, :] = cep
         dat['cepstrum'] = cep2
         dat = vocoder.from_cepstrum(dat)
-    if 0:  # LPC smoothing
+    if 1:  # LPC smoothing
         from scipy.fftpack import ifft
         from scipy.signal import freqz
         # Levinson Durbin on spectrum
         spec = dat['spectrogram']
+        warp = True
+
         H = np.zeros_like(spec)
         D, N = spec.shape
         for i in range(N):
             sp = spec[:, i]
-            r = ifft(sp ** 2, n=(D-1) * 2).real
-            r = r[:D]
-            rms1 = np.sqrt(np.mean(sp**2))
-            a, _, _ = levinson(r, order=30)
-            w, h = freqz([1.0], a, worN=513)
-            h = h.real
-
-            rms2 = np.sqrt(np.mean(h.real**2))
-            g = rms1 / rms2
+            # if warp:
+            #     spec = np.interp()
+            # else:
+            #     pass
+            sp2 = sp ** 2
+            r = ifft(sp2, n=(D - 1) * 2).real[:D]
+            a, _, _ = levinson(r, order=18)
+            _, h = freqz([1.0], a, worN=513)
+            h = np.abs(h)
+            g = np.sqrt(np.mean(sp2)) / np.sqrt(np.mean(h ** 2))
             H[:, i] = g * h
+            if 0:
+                from matplotlib import pyplot as plt
+                plt.plot(np.log(spec[:, i]))
+                plt.plot(np.log(H[:, i]))
+                plt.title(str(i))
+                plt.show()
         dat['spectrogram'] = H
-    if 0:  # MFCC
-        from scipy.fftpack.realtransforms import dct
-        nceps=13
-        spec = dat['spectrogram']
-        D, N = spec.shape
-        lowfreq = 133.33
-        linsc = 200 / 3.
-        logsc = 1.0711703
-        nlinfil = 13
-        nlogfil = 27
-        # nfil = nlinfil + nlogfil
-        fbank = trfbank(fs, (D-1)*2, lowfreq, linsc, logsc, nlinfil, nlogfil)
-        fbank = fbank[:,:D]
-        mspec = np.log(np.dot(spec.T, fbank.T)).T
-        ceps = dct(mspec, type=2, norm='ortho', axis=-1)[:, :nceps]
+        if 1:
+            from matplotlib import pyplot as plt
+            plt.subplot(211)
+            plt.pcolor(np.log(spec))
+            plt.subplot(212)
+            plt.pcolor(np.log(H))
+            plt.show()
+    # if 0:  # MFCC
+    #     from scipy.fftpack.realtransforms import dct
+    #     nceps=13
+    #     spec = dat['spectrogram']
+    #     D, N = spec.shape
+    #     lowfreq = 133.33
+    #     linsc = 200 / 3.
+    #     logsc = 1.0711703
+    #     nlinfil = 13
+    #     nlogfil = 27
+    #     # nfil = nlinfil + nlogfil
+    #     fbank = trfbank(fs, (D-1)*2, lowfreq, linsc, logsc, nlinfil, nlogfil)
+    #     fbank = fbank[:,:D]
+    #     mspec = np.log(np.dot(spec.T, fbank.T)).T
+    #     ceps = dct(mspec, type=2, norm='ortho', axis=-1)[:, :nceps]
 
     # synthesis
     dat = vocoder.decode(dat)
