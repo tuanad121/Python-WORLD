@@ -238,18 +238,23 @@ class World(object):
 
         plt.show()
 
-    def to_cepstrum(self,data):
+    def to_cepstrum(self, data, lifter: int):
         mag = data['spectrogram']
         print(mag.shape)
         mag = np.log(mag.T)
         cep = irfft(mag)
-        data['cepstrum'] = cep.T
+        data['cepstrum'] = cep.T[:lifter, :]
         return data
 
-    def from_cepstrum(self, data):
-        mag = data['spectrogram'].T
-        cep = data['cepstrum'].T
+    def from_cepstrum(self, data, cep):
+        data['spectrogram']
 
+        cep = dat['cepstrum']
+        cep2 = np.zeros((cep.shape[0], data['spectrogram'].shape[0]))
+        cep2[:L, :] = cep
+        dat['cepstrum'] = cep2
+
+        cep = data['cepstrum'].T
         mag = rfft(cep).real
         data['spectrogram'] = np.exp(mag.T)
         return data
