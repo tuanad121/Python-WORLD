@@ -38,20 +38,23 @@ class Levinson(object):
 name = '../test/test-mwm'
 fs, x_int16 = wavread(f'{name}.wav')
 x = x_int16 / (2 ** 15 - 1)
+
+
 vocoder = main.World()
-dat = vocoder.encode(fs, x, f0_method='harvest')
 
-emphasis = True
-if emphasis:
-    D, N = dat['spectrogram'].shape
-    w, h = freqz([1, -.95], [1], D)
-    dat['spectrogram'] = (dat['spectrogram'].T * np.abs(h)).T
+def encode():
+    dat = vocoder.encode(fs, x, f0_method='harvest')
 
-warp = 2
-if warp:
-    vocoder.warp_spectrum(dat, warp)  # TODO: perhaps upsample also
+    emphasis = True
+    if emphasis:
+        D, N = dat['spectrogram'].shape
+        w, h = freqz([1, -.95], [1], D)
+        dat['spectrogram'] = (dat['spectrogram'].T * np.abs(h)).T
 
-if 1:  # LPC modeling via Levinson-Durbin on spectrum
+    warp = 0
+    if warp:
+        vocoder.warp_spectrum(dat, warp)  # TODO: perhaps upsample also
+
     order = 24
     levinson = Levinson()
     spec = dat['spectrogram']
@@ -68,37 +71,56 @@ if 1:  # LPC modeling via Levinson-Durbin on spectrum
         E[i] = (2 * r[0]) ** 0.5
         # E[i] = np.mean(spec[:, i] ** 2) ** 0.5  # just a reminder of the relationship
     # process A (and E) here
+    # TODO: split this into encode and decode
     for i in range(N):
         _, h = freqz([1.0], A[:, i], worN=D)  # TODO: non-uniformly sample if unwarping is required
         h = np.abs(h)
-        h *= E[i] / np.mean(h ** 2) ** 0.5  # apply gain
-        H[:, i] = h
-        if 0:  # see spectra
+        g = E[i] / np.mean(h ** 2) ** 0.5  # apply gain
+        H[:, i] = h * g
+        if i > 60 and 0:  # see spectra
             from matplotlib import pyplot as plt
             plt.plot((spec[:, i]))
             plt.plot((H[:, i]))
             plt.title(str(i))
             plt.show()
-    dat['spectrogram'] = H
-    if 1:  # see spectrograms
-        from matplotlib import pyplot as plt
-        plt.subplot(211)
-        plt.pcolor(np.log(spec))
-        plt.subplot(212)
-        plt.pcolor(np.log(H))
-        plt.show()
-
-if warp:  # unwarp
-    vocoder.warp_spectrum(dat, 1 / warp)
-
-if emphasis:  # de-emphasis
-    D, N = dat['spectrogram'].shape
-    w, h = freqz([1], [1, -.95], D)
-    dat['spectrogram'] = (dat['spectrogram'].T * np.abs(h)).T
+    dat['H'] = H
+    return dat, A, E
 
 
-# synthesis
-dat = vocoder.decode(dat)
+def decode(dat, A, E):
+    if warp:  # unwarp
+        vocoder.warp_spectrum(dat, 1 / warp)
+
+    if emphasis:  # de-emphasis
+        D, N = dat['spectrogram'].shape
+        w, h = freqz([1], [1, -.95], D)
+        dat['spectrogram'] = (dat['spectrogram'].T * np.abs(h)).T
+
+
+    # synthesis
+    dat = vocoder.decode(dat)
+    return dat
+
+
+dat, A, E = encode()
+
+F, B = poly2peaks(A)
+
+if 1:  # see spectrograms
+    from matplotlib import pyplot as plt
+
+    plt.subplot(211)
+    plt.pcolor(np.log(dat['spectrogram']))
+    plt.subplot(212)
+    plt.pcolor(np.log(dat['H']))
+    # show roots / peaks
+    # maybe show order in xticklabel
+    plt.show()
+
+decode()
+
+
+
 import simpleaudio as sa
 out = (dat['out'] * 2 ** 15).astype(np.int16)
 snd = sa.play_buffer(out, 1, 2, fs)
