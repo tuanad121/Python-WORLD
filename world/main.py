@@ -5,7 +5,6 @@ from typing import Iterable
 # 3rd party imports
 import numpy as np
 from scipy.io.wavfile import read as wavread
-from numpy.fft import rfft, irfft
 
 # local imports
 from .dio import dio
@@ -18,9 +17,6 @@ from .swipe import swipe
 
 
 class World(object):
-    def __init__(self):
-        self.dat = None  # TODO: yes?
-
     def get_f0(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5) -> tuple:
         """
@@ -241,23 +237,3 @@ class World(object):
 
         plt.show()
 
-    def to_cepstrum(self, data, lifter: int):
-        mag = data['spectrogram']
-        print(mag.shape)
-        mag = np.log(mag.T)
-        cep = irfft(mag)
-        data['cepstrum'] = cep.T[:lifter, :]
-        return data
-
-    def from_cepstrum(self, data, cep):
-        data['spectrogram']
-
-        cep = dat['cepstrum']
-        cep2 = np.zeros((cep.shape[0], data['spectrogram'].shape[0]))
-        cep2[:L, :] = cep
-        dat['cepstrum'] = cep2
-
-        cep = data['cepstrum'].T
-        mag = rfft(cep).real
-        data['spectrogram'] = np.exp(mag.T)
-        return data
