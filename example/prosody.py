@@ -17,7 +17,7 @@ if 1:  # global pitch scaling
 if 0:  # global duration scaling
     dat = vocoder.scale_duration(dat, 2)
 if 1:  # fine-grained duration modification
-    vocoder.modify_duration(dat, [1, 1.5], [0, 1, 3, -1])
+    vocoder.modify_duration(dat, [1, 1.5], [0, 1, 3, -1])  # TODO: look into this
 
 # synthesis
 dat = vocoder.decode(dat)

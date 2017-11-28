@@ -10,8 +10,7 @@ from scipy.io.wavfile import write
 from world import main
 
 
-name = 'test-mwm'
-fs, x_int16 = wavread('{}.wav'.format(name))
+fs, x_int16 = wavread('test-mwm.wav')
 x = x_int16 / (2 ** 15 - 1)
 vocoder = main.World()
 
