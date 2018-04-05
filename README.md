@@ -26,8 +26,44 @@ Or open the project in [PyCharm](https://www.jetbrains.com/pycharm/) and double-
 # EXAMPLE
 **************
 
+The easiest way to run those examples is to import the ```Python-WORLD``` folder into an IDE such as PyCharm.
+
 In ```example/prodosy.py```, there is an example of analysis/modification/synthesis with WORLD vocoder. 
 It has some examples of pitch, duration, spectrum modification.
+
+First, we read an audio file:
+
+```python
+from scipy.io.wavfile import read as wavread
+fs, x_int16 = wavread(wav_path)
+x = x_int16 / (2 ** 15 - 1)
+```
+
+Then, we declare a vocoder and encode the audio file:
+
+```python
+from world import main
+vocoder = main.World()
+# analysis
+dat = vocoder.encode(fs, x, f0_method='harvest')
+```
+
+The ```dat``` is a dictionary object that contains pitch, magnitude spectrum, and aperiodicity. 
+
+We can scale the pitch:
+
+```python
+dat = vocoder.scale_pitch(dat, 1.5)
+```
+
+Be careful when you scale the pich because there is upper limit and lower limit.
+
+We can make speech faster or slower:
+
+```python
+dat = vocoder.scale_duration(dat, 2)
+```
+
 In ```test/speed.py```, we estimate the time of analysis.
 
 # NOTE:
