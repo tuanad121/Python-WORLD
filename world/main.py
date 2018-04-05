@@ -4,6 +4,7 @@ from typing import Iterable
 
 # 3rd party imports
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.io.wavfile import read as wavread
 
 # local imports
