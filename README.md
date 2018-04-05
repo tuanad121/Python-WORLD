@@ -1,11 +1,11 @@
-#PYTHON WORLD VOCODER: 
+# PYTHON WORLD VOCODER: 
 *************************************
 
 This is a line-by-line implementation of WORLD vocoder (Matlab, C++) in python. It supports *python 3.0* and later.
 
 For technical detail, please check the [website](http://ml.cs.yamanashi.ac.jp/world/english/).
 
-#INSTALATION
+# INSTALATION
 *********************
 
 Python WORLD uses the following dependencies:
@@ -23,12 +23,14 @@ pip install -r requirements.txt
 
 Or open the project in [PyCharm](https://www.jetbrains.com/pycharm/) and double-click the ```requirements.txt``` in PyCharm. It will ask to install the missing libraries by itself. 
 
-#EXAMPLE
+# EXAMPLE
 **************
 
-In ```app.py```, there is an example of analysis/synthesis speech with WORLD vocoder. It also has some examples of pitch, duration, spectrum modification.
+In ```example/prodosy.py```, there is an example of analysis/modification/synthesis with WORLD vocoder. 
+It has some examples of pitch, duration, spectrum modification.
+In ```test/speed.py```, we estimate the time of analysis.
 
-#NOTE:
+# NOTE:
 **********
 
 * The vocoder use pitch-synchronous analysis, the size of each window is determined by fundamental frequency ```F0```. The centers of the windows are equally spaced with the distance of ```frame_period``` ms.
@@ -40,10 +42,8 @@ If you decrease ```fft_size```, the ```f0_floor``` increases. But, a high ```f0_
 * The F0 analysis ```Harvest``` is the slowest one. It's speeded up using ```numba``` and ```python multiprocessing```. The more cores you have, the faster it can become. However, you can use your own F0 analysis. In our case, we support 3 F0 analysis: ```DIO, HARVEST, and SWIPE'```
 
 
-#CONTACT US
+# CONTACT US
 ******************
 
+
 Post your questions, suggestions, and discussions to GitHub Issues.
-
-
-
