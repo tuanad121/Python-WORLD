@@ -57,7 +57,11 @@ def generate_short_velvet_noise(N):
     n = np.zeros(N)
     td = 4
     r = int(N // td + 0.5)
-    safety_rand = 2 * np.r_[np.ones(r//2), -np.ones(r//2)]
+    safety_rand = np.ones(r)
+    safety_rand[int(r//2):] *= -1
+    safety_rand *= 2
+    # safety_rand = 2 * np.r_[np.ones(r//2), -np.ones(r//2)]
+    
     for i in range(r):
         # random.seed(10)
         tmp_index = random.randint(0, r-1)
