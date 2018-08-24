@@ -35,7 +35,7 @@ if 0:  # low-cut
 vocoder = main.World()
 
 # analysis
-dat = vocoder.encode(fs, x, f0_method='harvest')
+dat = vocoder.encode(fs, x, f0_method='harvest', is_requiem=True) # use requiem analysis and synthesis
 if 0:  # global pitch scaling
     dat = vocoder.scale_pitch(dat, 1.5)
 if 0:  # global duration scaling

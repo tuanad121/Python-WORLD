@@ -13,7 +13,10 @@ from .stonemask import stonemask
 from .harvest import harvest
 from .cheaptrick import cheaptrick
 from .d4c import d4c
+from .d4cRequiem import d4cRequiem
+from .get_seeds_signals import get_seeds_signals
 from .synthesis import synthesis
+from .synthesisRequiem import synthesisRequiem
 from .swipe import swipe
 
 
@@ -72,7 +75,7 @@ class World(object):
                 'ps spectrogram': filter['ps spectrogram'],
                 'spectrogram': filter['spectrogram']}
 
-    def encode_w_gvn_f0(self, fs: int, x: np.ndarray, source: dict, fft_size=None) -> dict:
+    def encode_w_gvn_f0(self, fs: int, x: np.ndarray, source: dict, fft_size=None, is_requiem: bool=False) -> dict:
         '''
         Do WORLD pitch-synchronous analysis with given F0 contour
         :param fs: sampling rate
@@ -83,19 +86,23 @@ class World(object):
         '''
         assert np.all(source['f0'] >= 3 * fs / fft_size)
         filter = cheaptrick(x, fs, source, fft_size=fft_size)
-        source = d4c(x, fs, source, fft_size_for_spectrum=fft_size)
+        if is_requiem:
+            source = d4cRequiem(x, fs, source, fft_size=fft_size)
+        else:
+            source = d4c(x, fs, source, fft_size_for_spectrum=fft_size)
         return {'temporal_positions': source['temporal_positions'],
                 'vuv': source['vuv'],
                 'f0': source['f0'],
                 'fs': fs,
                 'spectrogram': filter['spectrogram'],
                 'aperiodicity': source['aperiodicity'],
-                'coarse_ap': source['coarse_ap']
+                'coarse_ap': source['coarse_ap'],
+                'is_requiem': is_requiem
                 }
 
     def encode(self, fs: int, x: np.ndarray, f0_method: str = 'harvest', f0_floor: int = 71, f0_ceil: int = 800,
                channels_in_octave: int = 2, target_fs: int = 4000, frame_period: int = 5,
-               allowed_range: float = 0.1, fft_size=None) -> dict:
+               allowed_range: float = 0.1, fft_size=None, is_requiem: bool=False) -> dict:
         '''
         encode speech to excitation signal, f0, spectrogram
 
@@ -126,7 +133,10 @@ class World(object):
         else:
             raise Exception
         filter = cheaptrick(x, fs, source, fft_size=fft_size)
-        source = d4c(x, fs, source, fft_size_for_spectrum=fft_size)
+        if is_requiem:
+            source = d4cRequiem(x, fs, source, fft_size=fft_size)
+        else:
+            source = d4c(x, fs, source, fft_size_for_spectrum=fft_size)
 
         return {'temporal_positions': source['temporal_positions'],
                 'vuv': source['vuv'],
@@ -134,7 +144,8 @@ class World(object):
                 'f0': source['f0'],
                 'aperiodicity': source['aperiodicity'],
                 'ps spectrogram': filter['ps spectrogram'],
-                'spectrogram': filter['spectrogram']
+                'spectrogram': filter['spectrogram'],
+                'is_requiem': is_requiem
                 }
 
     def scale_pitch(self, dat: dict, factor: float) -> dict:
@@ -187,7 +198,11 @@ class World(object):
         :param dat: contains WORLD components
         :return: a dictionary contains synthesized speech and WORLD components
         '''
-        y = synthesis(dat, dat)
+        if dat['is_requiem']:
+            seeds_signals = get_seeds_signals(dat['fs'])
+            y = synthesisRequiem(dat, dat, seeds_signals)
+        else:
+            y = synthesis(dat, dat)
         m = np.max(np.abs(y))
         if m > 1.0:
             logging.info('rescaling waveform')

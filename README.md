@@ -21,12 +21,13 @@ Install python dependencies:
 pip install -r requirements.txt
 ```
 
-Or open the project in [PyCharm](https://www.jetbrains.com/pycharm/) and double-click the ```requirements.txt``` in PyCharm. It will ask to install the missing libraries by itself. 
+Or import the project with [PyCharm](https://www.jetbrains.com/pycharm/) and open ```requirements.txt``` in PyCharm. 
+It will ask to install the missing libraries by itself. 
 
 # EXAMPLE
 **************
 
-The easiest way to run those examples is to import the ```Python-WORLD``` folder into an IDE such as PyCharm.
+The easiest way to run those examples is to import the ```Python-WORLD``` folder into PyCharm.
 
 In ```example/prodosy.py```, there is an example of analysis/modification/synthesis with WORLD vocoder. 
 It has some examples of pitch, duration, spectrum modification.
@@ -48,6 +49,8 @@ vocoder = main.World()
 dat = vocoder.encode(fs, x, f0_method='harvest')
 ```
 
+in which, ```fs``` is sampling frequency and ```x``` is the speech signal.
+
 The ```dat``` is a dictionary object that contains pitch, magnitude spectrum, and aperiodicity. 
 
 We can scale the pitch:
@@ -65,6 +68,13 @@ dat = vocoder.scale_duration(dat, 2)
 ```
 
 In ```test/speed.py```, we estimate the time of analysis.
+
+To use d4c_requiem analysis and requiem_synthesis in WORLD version 0.2.2, set the variable ```is_requiem=True```:
+
+```python
+# requiem analysis
+dat = vocoder.encode(fs, x, f0_method='harvest', is_requiem=True)
+```
 
 # NOTE:
 **********

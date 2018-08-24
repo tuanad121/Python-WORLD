@@ -1,5 +1,5 @@
-numpy
-scipy
-numba
-simpleaudio
-cython
+numpy==1.14.2
+scipy==1.1.0
+numba==0.37.0
+cython==0.27.3
+simpleaudio==1.0.2
