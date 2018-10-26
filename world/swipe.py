@@ -91,7 +91,6 @@ def swipe(fs, x, plim=[71, 800], dt=0.005, sTHR=float('-inf')):
             s[j] = np.max(pval)
             k = np.argmax(pval)
             p[j] = 2 ** ( np.log2(pc[I[0]]) + (k)/12/64 )
-            print()
     p = p.flatten()
     p[np.isnan(p)] = 0
     vuv = np.zeros_like(p)
@@ -116,7 +115,9 @@ def pitchStrengthAllCandidates(f, L, pc):
     # Normalize loudness
     if np.any(L==0):
         print('')
-    L = L / np.sqrt(np.sum(L * L, axis=0))
+    den = np.sqrt(np.sum(L * L, axis=0))
+    den = np.where(den==0, 2.220446049250313e-16, den)
+    L = L / den
     # Create pitch salience matrix
     S = np.zeros((len(pc), L.shape[1]))
     for j in range(len(pc)):
