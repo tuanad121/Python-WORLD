@@ -128,6 +128,7 @@ def time_base_generation(temporal_positions, f0, fs, vuv, signal_time, default_f
     total_phase = np.cumsum(2 * np.pi * f0_interpolated / fs)
     wrap_phase = np.remainder(total_phase, 2 * np.pi)
     pulse_locations = (signal_time[:-1])[np.abs(np.diff(wrap_phase)) > np.pi]
+    assert (len(pulse_locations)) > 0
     pulse_locations_index = np.array([int(Decimal(elm * fs).quantize(0, ROUND_HALF_UP)) for elm in pulse_locations]) + 1
 
     y1 = wrap_phase[pulse_locations_index - 1] -2.0 * np.pi

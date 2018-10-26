@@ -3,6 +3,7 @@ from scipy.io.wavfile import read
 
 from decimal import Decimal, ROUND_HALF_UP
 from scipy import interpolate
+from matplotlib import mlab
 
 
 def swipe(fs, x, plim=[71, 800], dt=0.005, sTHR=float('-inf')):
@@ -34,6 +35,7 @@ def swipe(fs, x, plim=[71, 800], dt=0.005, sTHR=float('-inf')):
         w = np.hanning(ws[i]+2)[1:-1]
         o = max(0, np.round(ws[i] - dn)) # Window overlap
         X, f, ti = mlab.specgram(x=xzp, NFFT=ws[i], Fs=fs, window=w, noverlap=o, mode='complex')
+
         ti = np.r_[0, ti[:-1]]
         # Interplolate at equidistant ERBs steps
         M = np.maximum(0, interpolate.interp1d(f, np.abs(X.T), kind='cubic')(fERBs)) # Magnitude
@@ -90,12 +92,14 @@ def swipe(fs, x, plim=[71, 800], dt=0.005, sTHR=float('-inf')):
             k = np.argmax(pval)
             p[j] = 2 ** ( np.log2(pc[I[0]]) + (k)/12/64 )
             print()
-    p[np.isnan(s)] = 0
-    s[np.isnan(s)] = 0
+    p = p.flatten()
+    p[np.isnan(p)] = 0
+    vuv = np.zeros_like(p)
+    vuv[p>0] = 1
     return {
         'temporal_positions':t,
         'f0': p,
-        'vuv': s
+        'vuv': vuv
     }
 
 
