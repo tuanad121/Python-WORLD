@@ -57,13 +57,13 @@ def harvest(x: np.ndarray, fs: int, f0_floor: int=71, f0_ceil: int=800, frame_pe
 ############################################################################################
 def CalculateDownsampledSignal(x: np.ndarray, fs: int, target_fs: int) -> tuple:
     decimation_ratio = int(fs / target_fs + 0.5)
-    offset = int(np.ceil(140 / decimation_ratio) * decimation_ratio)
-    x = np.append(np.append(np.ones(offset) * x[0], x), np.ones(offset) * x[-1])
 
-    if fs < target_fs:
+    if fs <= target_fs:
         y = copy.deepcopy(x)
         actual_fs = fs
     else:
+        offset = int(np.ceil(140 / decimation_ratio) * decimation_ratio)
+        x = np.append(np.append(np.ones(offset) * x[0], x), np.ones(offset) * x[-1])
         y0 = decimate_matlab(x, decimation_ratio, n = 3)
         actual_fs = fs / decimation_ratio
         y = y0[int(offset / decimation_ratio) : int(-offset / decimation_ratio)]
