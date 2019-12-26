@@ -76,6 +76,8 @@ To use d4c_requiem analysis and requiem_synthesis in WORLD version 0.2.2, set th
 dat = vocoder.encode(fs, x, f0_method='harvest', is_requiem=True)
 ```
 
+To extract log-filterbanks, MCEP-40, VAE-12 as described in the paper `Using a Manifold Vocoder for Spectral Voice and Style Conversion`, check ```test/spectralFeatures.py```. You need Keras 2.2.4 and TensorFlow 1.14.0 to extract VAE-12.
+
 # NOTE:
 **********
 
@@ -86,6 +88,13 @@ When you want to specify your own ```fft_size```, you have to use ```f0_floor = 
 If you decrease ```fft_size```, the ```f0_floor``` increases. But, a high ```f0_floor``` might be not good for the analysis of male voices.
 
 * The F0 analysis ```Harvest``` is the slowest one. It's speeded up using ```numba``` and ```python multiprocessing```. The more cores you have, the faster it can become. However, you can use your own F0 analysis. In our case, we support 3 F0 analysis: ```DIO, HARVEST, and SWIPE'```
+
+
+# CITATION:
+
+If you find the code helpful and want to cite it, please use:
+
+Dinh, T., Kain, A., & Tjaden, K. (2019). Using a manifold vocoder for spectral voice and style conversion. Proceedings of the Annual Conference of the International Speech Communication Association, INTERSPEECH, 2019-September, 1388-1392.
 
 
 # CONTACT US
