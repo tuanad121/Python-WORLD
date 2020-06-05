@@ -4,6 +4,9 @@ from typing import Iterable
 
 # 3rd party imports
 import numpy as np
+from scipy.signal import freqz
+from numpy.fft import irfft
+from numpy.fft import rfft
 # import matplotlib.pyplot as plt
 from scipy.io.wavfile import read as wavread
 
@@ -252,4 +255,131 @@ class World(object):
         ax[4].set_ylabel('time (s)')
 
         plt.show()
+
+    def hz2mel(self,hz):
+        """Convert a value in Hertz to Mels
+
+        :param hz: a value in Hz. This can also be a numpy array, conversion proceeds element-wise.
+        :returns: a value in Mels. If an array was passed in, an identical sized array is returned.
+        """
+        return 2595 * np.log10(1 + hz / 700.)
+
+    def mel2hz(self, mel):
+        """Convert a value in Mels to Hertz
+
+        :param mel: a value in Mels. This can also be a numpy array, conversion proceeds element-wise.
+        :returns: a value in Hertz. If an array was passed in, an identical sized array is returned.
+        """
+        return 700 * (10 ** (mel / 2595.0) - 1)
+
+    def get_filterbanks(self, nfilt=20, nfft=512, samplerate=16000, lowfreq=0, highfreq=None):
+        """Compute a Mel-filterbank. The filters are stored in the rows, the columns correspond
+        to fft bins. The filters are returned as an array of size nfilt * (nfft/2 + 1)
+
+        :param nfilt: the number of filters in the filterbank, default 20.
+        :param nfft: the FFT size. Default is 512.
+        :param samplerate: the samplerate of the signal we are working with. Affects mel spacing.
+        :param lowfreq: lowest band edge of mel filters, default 0 Hz
+        :param highfreq: highest band edge of mel filters, default samplerate/2
+        :returns: A numpy array of size nfilt * (nfft/2 + 1) containing filterbank. Each row holds 1 filter.
+        """
+        highfreq = highfreq or samplerate / 2
+        assert highfreq <= samplerate / 2, "highfreq is greater than samplerate/2"
+
+        # compute points evenly spaced in mels
+        lowmel = self.hz2mel(lowfreq)
+        highmel = self.hz2mel(highfreq)
+        melpoints = np.linspace(lowmel, highmel, nfilt + 2)
+        # our points are in Hz, but we use fft bins, so we have to convert
+        #  from Hz to fft bin number
+        bin = np.floor((nfft + 1) * self.mel2hz(melpoints) / samplerate)
+
+        fbank = np.zeros([nfilt, nfft // 2 + 1])
+        for j in range(0, nfilt):
+            for i in range(int(bin[j]), int(bin[j + 1])):
+                fbank[j, i] = (i - bin[j]) / (bin[j + 1] - bin[j])
+            for i in range(int(bin[j + 1]), int(bin[j + 2])):
+                fbank[j, i] = (bin[j + 2] - i) / (bin[j + 2] - bin[j + 1])
+        return fbank
+
+    def encode_lfbank(self, spec: np.ndarray, prefac: float = 0.97, fs: int = 16000,
+                      nfilt: int = 32, lowfreq=0, highfreq=None):
+        """
+        Compute log filterbanks from WORLD magnitude spectrum
+        """
+        N, D = spec.shape
+        nfft = (D - 1) * 2
+        # pre-emphasis
+        w, h = freqz([1, -prefac], [1], D)
+        spec = (spec * np.abs(h))
+
+        pspec = 1 / nfft * np.square(spec)
+        # energy = np.sum(pspec, axis=1)  # this stores the total energy in each frame
+        # energy = np.where(energy == 0, np.finfo(float).eps, energy)
+        fb = self.get_filterbanks(nfilt, nfft, fs, lowfreq, highfreq)
+        feat = np.dot(pspec, fb.T)  # compute the filterbank energies
+        feat = np.where(feat == 0, np.finfo(float).eps, feat)  # if feat is zero, we get problems with log
+        return np.log(feat)
+
+    def encode_mcep(self, spec: np.ndarray, n0: int = 12, fs: int = 16000, lowhz=0, highhz=8000):
+        """
+        Warp magnitude spectrum with Mel-scale
+        Then, cepstrum analysis with order of n0
+        Spec is magnitude spectrogram (N x D) array
+        """
+
+        lowmel = self.hz2mel(lowhz)
+        highmel = self.hz2mel(highhz)
+        """return the real cepstrum X is N x D array; N frames and D dimensions"""
+        Xl = np.log(spec)
+        D = spec.shape[1]
+        melpoints = np.linspace(lowmel, highmel, D)
+        bin = np.floor(((D - 1) * 2 + 1) * self.mel2hz(melpoints) / fs)
+        Xml = np.array([np.interp(bin, np.arange(D), s)
+                        for s in Xl])  #
+        Xc = irfft(Xml)  # Xl is real, not complex
+        return Xc[:, :n0]
+
+    def decode_mcep(self, cepstrum: np.ndarray, fft_size:int):
+        """
+        Compute magnitude spectrum from mcep
+        """
+        lowmel = self.hz2mel(0)
+        highmel = self.hz2mel(8000)
+        n0 = cepstrum.shape[1]
+        Yc = np.zeros((cepstrum.shape[0], fft_size))
+        Yc[:, :n0] = cepstrum
+        Yc[:, :-n0:-1] = Yc[:, 1:n0]
+        Yl = rfft(Yc).real
+        melpoints = np.linspace(lowmel, highmel, int(fft_size // 2 + 1))
+        bin = np.floor(fft_size * self.mel2hz(melpoints) / 16000)
+        Yl = np.array([np.interp(np.arange(int(fft_size // 2 + 1)), bin, s)
+                       for s in Yl])
+        return np.exp(Yl)
+
+    def get_context(self, X, w=5):
+        N, D = X.shape
+        # zero padding
+        X = np.r_[np.zeros((w, D)) + X[0], X, np.zeros((w, D)) + X[-1]]
+        X = np.array([X[i:i + 2 * w + 1].flatten() for i in range(N)])
+        return X
+
+    def encode_vae(self, Xc, energy, encoder, decoder, window, n0, batch_size, mean):
+        assert Xc.shape[1] == n0 - 1
+        Xc -= mean
+        Xc = self.get_context(Xc, w=window)
+
+        Zc = encoder.predict(Xc, batch_size=batch_size)
+        Yc = decoder.predict(Zc)
+
+        Yc = Yc[:, window * (n0 - 1):(window + 1) * (n0 - 1)]
+        # to spec_hat
+        tmp = np.zeros((Yc.shape[0], n0))
+        tmp[:, 0] = energy
+        # tmp[:, 1:n0] = scaler.inverse_transform(Yc)
+        Yc += mean
+        tmp[:, 1:n0] = Yc
+        Yc = tmp
+
+        return Zc, Yc
 

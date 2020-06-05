@@ -9,21 +9,31 @@ from scipy.io.wavfile import write
 # local imports
 from world import main
 
+def lsd(ori_spec, syn_spec):
+    # N x D orig_spec and N x D syn_spec; N is # frames
+    # remove energy
+    ori_tmp = ori_spec / np.sqrt(np.mean(ori_spec ** 2, axis=1)).reshape(-1, 1)
+    syn_tmp = syn_spec / np.sqrt(np.mean(syn_spec ** 2, axis=1)).reshape(-1, 1)
+    # log spectral distortion
+    result = np.mean((np.mean((20 * np.log10(ori_tmp) - 20 * np.log10(syn_tmp)) ** 2, axis=1)) ** 0.5)
+    return result
 
 fs, x_int16 = wavread('test-mwm.wav')
 x = x_int16 / (2 ** 15 - 1)
 vocoder = main.World()
 
 data = vocoder.encode(fs, x, f0_method='harvest')
-if 1: #  log filterbank
+if 0: #  log filterbank
     lfbank = vocoder.encode_lfbank(data['spectrogram'].T)
+    assert lfbank.shape[1] == 32
 
 if 0: #  mcep
     mcep = vocoder.encode_mcep(data['spectrogram'].T, n0=40)
+    assert mcep.shape[1] == 40
     spec = vocoder.decode_mcep(mcep, fft_size=1024)
     print(f"Log-spectral distortion {lsd(spec, data['spectrogram'].T)} dB")  # 5.23 dB
 
-if 0: #  manifold vocoder
+if 1: #  manifold vocoder
     from keras.models import load_model
     encoder = load_model('../manifold/timit_vae_encoder_0001')
     decoder = load_model('../manifold/timit_vae_decoder_0001')
