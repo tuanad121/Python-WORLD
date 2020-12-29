@@ -37,7 +37,7 @@ First, we read an audio file:
 ```python
 from scipy.io.wavfile import read as wavread
 fs, x_int16 = wavread(wav_path)
-x = x_int16 / (2 ** 15 - 1)
+x = x_int16 / (2 ** 15 - 1) # to float
 ```
 
 Then, we declare a vocoder and encode the audio file:
