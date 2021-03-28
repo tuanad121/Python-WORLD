@@ -77,6 +77,7 @@ dat = vocoder.encode(fs, x, f0_method='harvest', is_requiem=True)
 ```
 
 To extract log-filterbanks, MCEP-40, VAE-12 as described in the paper `Using a Manifold Vocoder for Spectral Voice and Style Conversion`, check ```test/spectralFeatures.py```. You need Keras 2.2.4 and TensorFlow 1.14.0 to extract VAE-12.
+Check out [speech samples](https://tuanad121.github.io/samples/2019-09-15-Manifold/)
 
 # NOTE:
 **********
