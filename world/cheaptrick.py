@@ -88,7 +88,7 @@ def calculate_windowed_waveform(x: np.ndarray, fs: int, f0: float, temporal_posi
     base_index = np.arange(-half_window_length, half_window_length + 1)
     index = int(temporal_position * fs + 0.501) + 1.0 + base_index
     safe_index = np.minimum(len(x), np.maximum(1, round_matlab(index)))
-    safe_index = np.array(safe_index, dtype=np.int)
+    safe_index = np.array(safe_index, dtype=np.int_)
     
     #  wave segments and set of windows preparation
     segment = x[safe_index - 1]

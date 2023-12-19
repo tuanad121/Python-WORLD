@@ -1,7 +1,7 @@
 import numpy as np
 import numba
 from scipy.fftpack import fft, ifft, fftshift
-from scipy.signal import hanning
+from scipy.signal.windows import hann
 
 import random
 
@@ -32,7 +32,7 @@ def get_seeds_signals(fs: int, fft_size: int=None, noise_length: int=None):
             spec[w > (frequency_interval * i)] = 1
         pulse[:,i] = fftshift(ifft(np.r_[spec, spec[-2:0:-1]]).real)
         noise[:,i] = ifft(spec_n * fft(pulse[:,i], noise_length)).real
-    h = hanning(fft_size+2)[1:-1]
+    h = hann(fft_size+2)[1:-1]
     pulse[:,0] = pulse[:,0] - np.mean(pulse[:,0]) * h / np.mean(h)
     return {'pulse':pulse,
             'noise':noise}

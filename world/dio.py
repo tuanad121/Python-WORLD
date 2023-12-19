@@ -78,7 +78,7 @@ def get_spectrum(x, fs, lowest_f0):
     fft_size = 2 ** math.ceil(math.log(np.size(x) + int(fs / lowest_f0 / 2 + 0.5) * 4,2))
     #low-cut filtering
     cutoff_in_sample = int(fs / 50 + 0.5)
-    low_cut_filter = signal.hanning(2 * cutoff_in_sample + 3)[1:-1] # remove zeros at starting and ending
+    low_cut_filter = signal.windows.hann(2 * cutoff_in_sample + 3)[1:-1] # remove zeros at starting and ending
     low_cut_filter = -low_cut_filter / np.sum(low_cut_filter)
     low_cut_filter[cutoff_in_sample] = low_cut_filter[cutoff_in_sample] + 1
     low_cut_filter = np.r_[low_cut_filter, np.zeros(fft_size - len(low_cut_filter))]

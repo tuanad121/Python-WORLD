@@ -46,7 +46,7 @@ def harvest(x: np.ndarray, fs: int, f0_floor: int=71, f0_ceil: int=800, frame_pe
     num_samples = int(1000 * len(x) / fs / frame_period + 1)
     temporal_positions = np.arange(0, num_samples) * frame_period / 1000
     temporal_positions_sampe = np.minimum(len(smoothed_f0) - 1, round_matlab(temporal_positions * 1000))
-    temporal_positions_sampe = np.array(temporal_positions_sampe, dtype=np.int)
+    temporal_positions_sampe = np.array(temporal_positions_sampe, dtype=np.int_)
     return {
         'temporal_positions': temporal_positions,
         'f0': smoothed_f0[temporal_positions_sampe],
@@ -186,7 +186,7 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     diff = np.diff(main_window)
     diff_window[1:-1] = - (diff[1:] + diff[:-1]) / 2
 
-    index = (np.maximum(1, np.minimum(len(x), index_raw)) - 1).astype(np.int)
+    index = (np.maximum(1, np.minimum(len(x), index_raw)) - 1).astype(np.int_)
 
     spectrum = fft(x[index] * main_window, fft_size)
     diff_spectrum = fft(x[index] * diff_window, fft_size)
@@ -198,7 +198,7 @@ def GetRefinedF0(x: np.ndarray, fs: float, current_time: float, current_f0: floa
     number_of_harmonics = min(np.floor(fs / 2 / current_f0), 6)  # with safe guard
     harmonic_index = np.arange(1, number_of_harmonics + 1)
 
-    index = round_matlab(current_f0 * fft_size / fs * harmonic_index).astype(np.int)
+    index = round_matlab(current_f0 * fft_size / fs * harmonic_index).astype(np.int_)
     instantaneous_frequency_list = instantaneous_frequency[index]
     amplitude_list = np.sqrt(power_spectrum[index])
     refined_f0 = np.sum(amplitude_list * instantaneous_frequency_list) / np.sum(amplitude_list * harmonic_index)

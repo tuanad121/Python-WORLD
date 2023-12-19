@@ -1,7 +1,7 @@
 # 3rd-party imports
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.signal import hanning
+from scipy.signal.windows import hann
 from scipy.fftpack import fft, ifft
 import numba
 import matplotlib.pyplot as plt
@@ -78,7 +78,7 @@ def get_waveform(excitation_signal, spectrogram, temporal_positions, f0, fs):
     frame_period_sample = int((temporal_positions[1] - temporal_positions[0]) * fs)
     win_len = frame_period_sample * 2 - 1
     half_win_len = frame_period_sample - 1
-    win = hanning(win_len+2)[1:-1]
+    win = hann(win_len+2)[1:-1]
 
     for i in range(2, len(f0)-1):
         origin = (i - 1) * frame_period_sample - half_win_len

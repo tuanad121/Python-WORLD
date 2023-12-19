@@ -54,7 +54,7 @@ def synthesis(source_object, filter_object):
     amplitude_aperiodic = source_object['aperiodicity'] ** 2
     amplitude_periodic = np.maximum(0.001, (1 - amplitude_aperiodic))
 
-    dc_remover_base = signal.hanning(fft_size + 2)[1:-1]
+    dc_remover_base = signal.windows.hann(fft_size + 2)[1:-1]
     dc_remover_base = dc_remover_base / np.sum(dc_remover_base)
     coefficient = 2.0 * np.pi * fs / fft_size
     
