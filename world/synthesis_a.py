@@ -78,7 +78,7 @@ def synthesis(source_object, filter_object):
             #  TODO: possible speed up via rfft?
 
             response = np.fft.fftshift(np.fft.ifft(np.exp(np.fft.ifft(tmp_complex_cepstrum))).real)
-            dc_remover = signal.hanning(len(response) + 2)[1:-1]
+            dc_remover = signal.windows.hann(len(response) + 2)[1:-1]
             dc_remover = dc_remover / np.sum(dc_remover)
             dc_remover = dc_remover * -np.sum(response)
             response += dc_remover

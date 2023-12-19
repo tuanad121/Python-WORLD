@@ -96,7 +96,7 @@ def get_windowed_waveform(x: np.ndarray, fs: int, current_f0: float,
     base_index = np.arange(-half_window_length, half_window_length + 1)
     index = int(current_position * fs + 0.501) + 1.0 + base_index
     safe_index = np.minimum(len(x), np.maximum(1, round_matlab(index)))
-    safe_index = np.array(safe_index, dtype=np.int)
+    safe_index = np.array(safe_index, dtype=np.int_)
     #  wave segments and set of windows preparation
     segment = x[safe_index - 1]
     time_axis = base_index / fs / half_length + \
