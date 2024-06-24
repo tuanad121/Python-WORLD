@@ -46,7 +46,7 @@ def get_refined_f0(x, fs, current_time, current_f0):
     diff_window = -(np.diff(np.r_[0, main_window]) + np.diff(np.r_[main_window, 0])) / 2
     
     index = np.maximum(1, np.minimum(len(x), index_raw ))
-    index = np.array(index, dtype=np.int)
+    index = np.array(index, dtype=np.int_)
     spectrum = np.fft.fft(x[index - 1] * main_window, fft_size)
     diff_spectrum = np.fft.fft(x[index - 1] * diff_window, fft_size)
     numerator_i = np.real(spectrum) * np.imag(diff_spectrum) - np.imag(spectrum) * np.real(diff_spectrum)
@@ -57,7 +57,7 @@ def get_refined_f0(x, fs, current_time, current_f0):
     
     trim_index = np.array([1, 2])
     index_list_trim = round_matlab(f0_initial * fft_size / fs * trim_index) + 1
-    index_list_trim = np.array(index_list_trim, np.int)
+    index_list_trim = np.array(index_list_trim, np.int_)
     fixp_list = instantaneous_frequency[index_list_trim - 1]
     amp_list = np.sqrt(power_spectrum[index_list_trim - 1])
     f0_initial = np.sum(amp_list * fixp_list) / np.sum(amp_list * trim_index)
@@ -68,14 +68,14 @@ def get_refined_f0(x, fs, current_time, current_f0):
     trim_index = np.array([1, 2, 3, 4, 5, 6])
     
     index_list_trim = round_matlab(f0_initial * fft_size / fs * trim_index) + 1
-    index_list_trim = np.array(index_list_trim, np.int)
+    index_list_trim = np.array(index_list_trim, np.int_)
     fixp_list = instantaneous_frequency[index_list_trim - 1]
     amp_list = np.sqrt(power_spectrum[index_list_trim - 1])
     refined_f0 = np.sum(amp_list * fixp_list) / np.sum(amp_list * trim_index)
 
     return refined_f0
 
-@numba.jit((numba.float64[:],), nopython=True, cache=True)
+# @numba.jit((numba.float64[:],), nopython=True, cache=True)
 def round_matlab(x: np.ndarray) -> np.ndarray:
     '''
     round function works as matlab round
